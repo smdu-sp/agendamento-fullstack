@@ -1,0 +1,14 @@
+{
+    "mcpServers": {
+        "UIPro by Locofy": {
+            "args": [
+                "-y",
+                "@locofy/uipro-mcp@latest"
+            ],
+            "command": "npx",
+            "env": {
+                "IDE_SOURCE": "cursor"
+            }
+        }
+    }
+}

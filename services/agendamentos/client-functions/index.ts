@@ -1,0 +1,1 @@
+export { atualizar } from './atualizar';

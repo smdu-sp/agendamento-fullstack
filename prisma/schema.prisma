@@ -1,0 +1,275 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id         String    @id @default(uuid())
+  nome       String
+  login      String    @unique
+  email      String    @unique
+  senha      String?   @db.VarChar(255)
+  permissao  Permissao @default(PORTARIA)
+  status     Boolean   @default(true)
+  avatar     String?   @db.Text
+  ultimoLogin  DateTime  @default(now())
+  criadoEm     DateTime  @default(now())
+  atualizadoEm DateTime  @default(now()) @updatedAt
+  nomeSocial   String?
+  divisaoId    String?
+
+  agendamentos           Agendamento[]
+  solicitacoesPreProjetoArthurComoTecnicoArthur SolicitacaoPreProjetoArthurSaboya[] @relation("SolicitacaoArthurTecnico")
+  divisao                Divisao?                @relation(fields: [divisaoId], references: [id], onDelete: SetNull)
+  logImportacoesPlanilha LogImportacaoPlanilha[]
+  logImportacoesOutlook  LogImportacaoOutlook[]
+  mensagensPreProjetoArthurSaboya SolicitacaoPreProjetoArthurSaboyaMensagem[]
+
+  @@map("usuarios")
+}
+
+model Agendamento {
+  id                        String            @id @default(uuid())
+  municipe                  String?
+  cpf                       String?
+  processo                  String?
+  dataHora                  DateTime
+  dataFim                   DateTime?
+  importado                 Boolean           @default(false)
+  importadoOutlook          Boolean           @default(false)
+  tecnicoResponsavelPlanilha String?          @db.VarChar(255)
+  resumo                    String?           @db.Text
+  tipoAgendamentoId         String?
+  motivoNaoAtendimentoId    String?
+  coordenadoriaId           String?
+  divisaoId                 String?
+  tecnicoId                 String?
+  tecnicoRF                 String?
+  email                     String?
+  status                    StatusAgendamento @default(SOLICITADO)
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @default(now()) @updatedAt
+
+  tipoAgendamento      TipoAgendamento? @relation(fields: [tipoAgendamentoId], references: [id], onDelete: NoAction)
+  motivoNaoAtendimento Motivo?          @relation(fields: [motivoNaoAtendimentoId], references: [id], onDelete: NoAction)
+  coordenadoria        Coordenadoria?   @relation(fields: [coordenadoriaId], references: [id], onDelete: NoAction)
+  divisao              Divisao?         @relation(fields: [divisaoId], references: [id], onDelete: SetNull)
+  tecnico              Usuario?         @relation(fields: [tecnicoId], references: [id], onDelete: NoAction)
+
+  solicitacaoPreProjetoArthurSaboya SolicitacaoPreProjetoArthurSaboya?
+
+  @@map("agendamentos")
+}
+
+model TipoAgendamento {
+  id           String   @id @default(uuid())
+  texto        String   @unique
+  status       Boolean  @default(true)
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @default(now()) @updatedAt
+
+  agendamentos Agendamento[]
+
+  @@map("tipos_agendamento")
+}
+
+model Motivo {
+  id           String   @id @default(uuid())
+  texto        String   @unique
+  status       Boolean  @default(true)
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @default(now()) @updatedAt
+
+  agendamentos Agendamento[]
+
+  @@map("motivos")
+}
+
+model Coordenadoria {
+  id           String   @id @default(uuid())
+  sigla        String   @unique
+  nome         String?
+  email        String?  @db.VarChar(255)
+  status       Boolean  @default(true)
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @default(now()) @updatedAt
+
+  agendamentos                       Agendamento[]
+  divisoes                           Divisao[]
+  solicitacoesPreProjetoArthurSaboya SolicitacaoPreProjetoArthurSaboya[]
+
+  @@map("coordenadorias")
+}
+
+model Divisao {
+  id              String   @id @default(uuid())
+  sigla           String   @unique
+  nome            String?
+  status          Boolean  @default(true)
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @default(now()) @updatedAt
+  coordenadoriaId String?
+
+  coordenadoria Coordenadoria? @relation(fields: [coordenadoriaId], references: [id], onDelete: SetNull)
+  usuarios      Usuario[]
+  agendamentos  Agendamento[]
+  solicitacoesPreProjetoArthurSaboya SolicitacaoPreProjetoArthurSaboya[]
+
+  @@map("divisoes")
+}
+
+/// Solicitações públicas de dúvidas / pré-projetos (formulário Arthur Saboya).
+model SolicitacaoPreProjetoArthurSaboya {
+  id              String   @id @default(uuid())
+  protocolo       String   @unique
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @default(now()) @updatedAt
+
+  nome            String
+  email           String
+
+  formacaoValor   String
+  formacaoOutro   String?
+  formacaoTexto   String   @db.VarChar(255)
+
+  naturezaValor   String
+  naturezaOutro   String?
+  naturezaTexto   String   @db.VarChar(500)
+
+  duvida          String   @db.Text
+
+  status          StatusSolicitacaoPreProjeto @default(SOLICITADO)
+
+  avaliacaoNota       Int?
+  avaliacaoComentario String?  @db.Text
+  avaliacaoEm         DateTime?
+  dataAgendamento     DateTime?
+
+  coordenadoriaId String?
+  divisaoId       String?
+
+  municipeContaId String?
+  municipeConta   MunicipeConta? @relation(fields: [municipeContaId], references: [id], onDelete: SetNull)
+
+  agendamentoId String? @unique
+  agendamento   Agendamento? @relation(fields: [agendamentoId], references: [id], onDelete: SetNull)
+
+  tecnicoArthurId String?
+  tecnicoArthur   Usuario? @relation("SolicitacaoArthurTecnico", fields: [tecnicoArthurId], references: [id], onDelete: SetNull)
+
+  coordenadoria Coordenadoria? @relation(fields: [coordenadoriaId], references: [id], onDelete: SetNull)
+  divisao       Divisao?       @relation(fields: [divisaoId], references: [id], onDelete: SetNull)
+
+  mensagens SolicitacaoPreProjetoArthurSaboyaMensagem[]
+
+  @@map("solicitacoes_pre_projeto_arthur_saboya")
+}
+
+/// Mensagens do “chamado” (estilo GLPI): munícipe, ponto focal ou sistema.
+model SolicitacaoPreProjetoArthurSaboyaMensagem {
+  id              String                         @id @default(uuid())
+  solicitacaoId   String
+  autor           AutorMensagemPreProjetoArthurSaboya
+  corpo           String                         @db.Text
+  criadoEm        DateTime                       @default(now())
+
+  usuarioId       String?
+  usuario         Usuario?       @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  municipeContaId String?
+  municipeConta   MunicipeConta? @relation(fields: [municipeContaId], references: [id], onDelete: SetNull)
+
+  solicitacao SolicitacaoPreProjetoArthurSaboya @relation(fields: [solicitacaoId], references: [id], onDelete: Cascade)
+
+  @@index([solicitacaoId])
+  @@map("solicitacoes_pre_projeto_arthur_saboya_mensagens")
+}
+
+enum AutorMensagemPreProjetoArthurSaboya {
+  MUNICIPE
+  PONTO_FOCAL
+  SISTEMA
+}
+
+enum Permissao {
+  DEV
+  ADM
+  TEC
+  ARTHUR_SABOYA
+  USR
+  PONTO_FOCAL
+  COORDENADOR
+  PORTARIA
+  DIRETOR
+}
+
+enum StatusAgendamento {
+  SOLICITADO
+  AGENDADO
+  CANCELADO
+  CONCLUIDO
+  ATENDIDO
+  NAO_REALIZADO
+}
+
+enum StatusSolicitacaoPreProjeto {
+  SOLICITADO
+  RESPONDIDO //SOLUCIONADO
+  AGUARDANDO_DATA
+  AGENDAMENTO_CRIADO
+}
+
+model LogImportacaoPlanilha {
+  id        String   @id @default(uuid())
+  dataHora  DateTime @default(now())
+  total     Int      @default(0)
+  usuarioId String?
+  usuario   Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@map("log_importacao_planilha")
+}
+
+model LogImportacaoOutlook {
+  id        String   @id @default(uuid())
+  dataHora  DateTime @default(now())
+  total     Int      @default(0)
+  usuarioId String?
+  usuario   Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@map("log_importacao_outlook")
+}
+
+model MunicipeConta {
+  id                 String                       @id @default(uuid())
+  nome               String
+  email              String                       @unique
+  senhaHash          String                       @map("senha_hash")
+  status             Boolean                      @default(true)
+  ultimoLogin        DateTime?                    @map("ultimo_login")
+  criadoEm           DateTime                     @default(now()) @map("criado_em")
+  atualizadoEm       DateTime                     @default(now()) @updatedAt @map("atualizado_em")
+  tokensRedefinicao  MunicipeTokenRedefinicaoSenha[]
+
+  solicitacoesPreProjetoArthurSaboya SolicitacaoPreProjetoArthurSaboya[]
+  mensagensPreProjetoArthurSaboya    SolicitacaoPreProjetoArthurSaboyaMensagem[]
+
+  @@map("municipes_contas")
+}
+
+model MunicipeTokenRedefinicaoSenha {
+  id              String         @id @default(uuid())
+  contaId         String         @map("conta_id")
+  tokenHash       String         @map("token_hash")
+  expiraEm        DateTime       @map("expira_em")
+  utilizadoEm     DateTime?      @map("utilizado_em")
+  criadoEm        DateTime       @default(now()) @map("criado_em")
+  conta           MunicipeConta  @relation(fields: [contaId], references: [id], onDelete: Cascade)
+
+  @@index([contaId, tokenHash])
+  @@map("municipes_tokens_redefinicao_senha")
+}
