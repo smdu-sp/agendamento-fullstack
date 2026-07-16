@@ -61,7 +61,10 @@ export async function atualizar(id: string, data: IUpdateUsuario): Promise<IResp
 		const permissaoValida = permissaoBase
 			? validaPermissaoCriador(permissaoBase, permissaoLogadoReal)
 			: $Enums.Permissao.PORTARIA;
-		if (permissaoValida === 'ARTHUR_SABOYA') {
+		if (
+			permissaoValida === 'ARTHUR_SABOYA' ||
+			permissaoValida === 'ADM_ARTHUR_SABOYA'
+		) {
 			divisaoIdFinal = await obterDivisaoArthurSaboyaId();
 		}
 

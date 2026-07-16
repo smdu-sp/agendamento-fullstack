@@ -59,6 +59,12 @@ export async function NavUser() {
       if (permissaoUpper === "ADM") {
         return { texto: "Administrador", variant: "destructive" };
       }
+      if (permissaoUpper === "ARTHUR_SABOYA") {
+        return { texto: "Técnico Arthur Saboya", variant: "default" };
+      }
+      if (permissaoUpper === "ADM_ARTHUR_SABOYA") {
+        return { texto: "Administrador Arthur Saboya", variant: "destructive" };
+      }
       if (permissaoUpper === "USR") {
         return { texto: "Usuário", variant: "secondary" };
       }

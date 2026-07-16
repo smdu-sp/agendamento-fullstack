@@ -59,7 +59,10 @@ export async function criar(data: ICreateUsuario): Promise<IRespostaUsuario> {
 				};
 			}
 			divisaoId = logado.divisaoId;
-		} else if (permissao === 'ARTHUR_SABOYA') {
+		} else if (
+			permissao === 'ARTHUR_SABOYA' ||
+			permissao === 'ADM_ARTHUR_SABOYA'
+		) {
 			divisaoId = await obterDivisaoArthurSaboyaId();
 		} else if (!divisaoId && permissao === 'TEC') {
 			divisaoId = await inferirDivisaoIdPorLoginNoSgu(data.login);

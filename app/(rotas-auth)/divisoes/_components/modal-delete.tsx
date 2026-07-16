@@ -29,7 +29,9 @@ export default function ModalDelete({ id, status }: { id: string; status: boolea
 	async function handleAction() {
 		startTransition(() => {
 			void (async () => {
-				const resp = await divisao.desativar(id);
+				const resp = vaiReativar
+					? await divisao.atualizar(id, { status: true })
+					: await divisao.desativar(id);
 				if (resp.error) toast.error('Algo deu errado', { description: resp.error });
 				if (resp.ok) {
 					toast.success(vaiReativar ? 'Divisão Ativada' : 'Divisão Desativada');

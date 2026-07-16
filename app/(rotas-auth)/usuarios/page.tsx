@@ -90,6 +90,10 @@ async function Usuarios({
       value: "ARTHUR_SABOYA",
     },
     {
+      label: "Administrador Arthur Saboya",
+      value: "ADM_ARTHUR_SABOYA",
+    },
+    {
       label: "Ponto Focal",
       value: "PONTO_FOCAL",
     },

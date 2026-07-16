@@ -35,6 +35,7 @@ import { useTransition, useEffect, useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
+import { usaDivisaoFixaArthurSaboya } from "@/lib/arthur-saboya-perfis";
 
 const formSchemaUsuario = z.object({
   nome: z.string(),
@@ -44,6 +45,7 @@ const formSchemaUsuario = z.object({
     "DEV",
     "TEC",
     "ARTHUR_SABOYA",
+    "ADM_ARTHUR_SABOYA",
     "ADM",
     "USR",
     "PONTO_FOCAL",
@@ -95,6 +97,7 @@ export default function FormUsuario({
           | "DEV"
           | "TEC"
           | "ARTHUR_SABOYA"
+          | "ADM_ARTHUR_SABOYA"
           | "ADM"
           | "USR"
           | "PONTO_FOCAL"
@@ -179,7 +182,7 @@ export default function FormUsuario({
   }, [session]);
 
   useEffect(() => {
-    if (permissaoSelecionada === "ARTHUR_SABOYA") {
+    if (usaDivisaoFixaArthurSaboya(permissaoSelecionada)) {
       const divisaoArthur = todasDivisoes.find((d) => d.id === divisaoArthurSaboyaId);
       setCoordenadoriaId(divisaoArthur?.coordenadoriaId || "");
       formUsuario.setValue("divisaoId", divisaoArthurSaboyaId || "");
@@ -259,7 +262,7 @@ export default function FormUsuario({
     startTransition(() => {
       void (async () => {
         if (isUpdating && user?.id) {
-          if (values.permissao === "ARTHUR_SABOYA" && !divisaoArthurSaboyaId) {
+          if (usaDivisaoFixaArthurSaboya(values.permissao) && !divisaoArthurSaboyaId) {
             toast.error("Divisão padrão não encontrada", {
               description:
                 "Não foi possível localizar a divisão ATHURSABOYA na coordenadoria CAP.",
@@ -271,11 +274,11 @@ export default function FormUsuario({
             values.permissao === "TEC" ||
             values.permissao === "COORDENADOR" ||
             values.permissao === "DIRETOR" ||
-            values.permissao === "ARTHUR_SABOYA";
+            usaDivisaoFixaArthurSaboya(values.permissao);
           const resp = await usuario.atualizar(user?.id, {
             permissao: values.permissao as unknown as IPermissao,
             divisaoId: deveEnviarDivisao
-              ? values.permissao === "ARTHUR_SABOYA"
+              ? usaDivisaoFixaArthurSaboya(values.permissao)
                 ? divisaoArthurSaboyaId
                 : values.divisaoId || undefined
               : undefined,
@@ -293,7 +296,7 @@ export default function FormUsuario({
             router.refresh();
           }
         } else {
-          if (values.permissao === "ARTHUR_SABOYA" && !divisaoArthurSaboyaId) {
+          if (usaDivisaoFixaArthurSaboya(values.permissao) && !divisaoArthurSaboyaId) {
             toast.error("Divisão padrão não encontrada", {
               description:
                 "Não foi possível localizar a divisão ATHURSABOYA na coordenadoria CAP.",
@@ -306,14 +309,14 @@ export default function FormUsuario({
             permissao === "TEC" ||
             permissao === "COORDENADOR" ||
             permissao === "DIRETOR" ||
-            permissao === "ARTHUR_SABOYA";
+            usaDivisaoFixaArthurSaboya(permissao);
           const resp = await usuario.criar({
             email,
             login,
             nome,
             permissao: permissao as unknown as IPermissao,
             divisaoId: deveEnviarDivisao
-              ? permissao === "ARTHUR_SABOYA"
+              ? usaDivisaoFixaArthurSaboya(permissao)
                 ? divisaoArthurSaboyaId
                 : divisaoId || undefined
               : undefined,
@@ -451,6 +454,9 @@ export default function FormUsuario({
                     <SelectItem value="DIRETOR">Diretor</SelectItem>
                     <SelectItem value="TEC">Técnico</SelectItem>
                     <SelectItem value="ARTHUR_SABOYA">Técnico Arthur Saboya</SelectItem>
+                    <SelectItem value="ADM_ARTHUR_SABOYA">
+                      Administrador Arthur Saboya
+                    </SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />

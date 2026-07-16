@@ -33,12 +33,14 @@ export default function ModalDelete({
 	async function handleAction() {
 		startTransition(() => {
 			void (async () => {
-				const resp = await coordenadoria.desativar(id);
+				const resp = status
+					? await coordenadoria.atualizar(id, { status: true })
+					: await coordenadoria.desativar(id);
 				if (resp.error) {
 					toast.error('Algo deu errado', { description: resp.error });
 				}
 				if (resp.ok) {
-					toast.success(status ? 'Coordenadoria Desativada' : 'Coordenadoria Ativada');
+					toast.success(status ? 'Coordenadoria Ativada' : 'Coordenadoria Desativada');
 					router.refresh();
 				}
 			})();

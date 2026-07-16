@@ -74,10 +74,20 @@ export async function buscarTecnicosPorDivisao(divisaoId: string): Promise<IResp
 export async function buscarTecnicosArthurSaboya(): Promise<IRespostaUsuario> {
 	try {
 		const usuario = await requireUsuario();
-		verificarPermissoes(usuario, ['ADM', 'DEV', 'PONTO_FOCAL', 'COORDENADOR', 'ARTHUR_SABOYA']);
+		verificarPermissoes(usuario, [
+			'ADM',
+			'DEV',
+			'PONTO_FOCAL',
+			'COORDENADOR',
+			'ARTHUR_SABOYA',
+			'ADM_ARTHUR_SABOYA',
+		]);
 
 		const tecnicos = await prisma.usuario.findMany({
-			where: { status: true, permissao: 'ARTHUR_SABOYA' },
+			where: {
+				status: true,
+				permissao: { in: ['ARTHUR_SABOYA', 'ADM_ARTHUR_SABOYA'] },
+			},
 			orderBy: { nome: 'asc' },
 			select: SELECT_TECNICO,
 		});

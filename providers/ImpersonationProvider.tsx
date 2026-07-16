@@ -15,6 +15,8 @@ const PERMISSOES: { value: string; label: string }[] = [
   { value: "", label: "Nenhuma (DEV)" },
   { value: "ADM", label: "Administrador" },
   { value: "TEC", label: "Técnico" },
+  { value: "ARTHUR_SABOYA", label: "Técnico Arthur Saboya" },
+  { value: "ADM_ARTHUR_SABOYA", label: "Administrador Arthur Saboya" },
   { value: "USR", label: "Usuário" },
   { value: "PONTO_FOCAL", label: "Ponto Focal" },
   { value: "COORDENADOR", label: "Coordenador" },
