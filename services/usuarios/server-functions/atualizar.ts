@@ -90,7 +90,17 @@ export async function atualizar(id: string, data: IUpdateUsuario): Promise<IResp
 		if (error instanceof AuthzError) {
 			return { ok: false, error: error.message, data: null, status: error.status };
 		}
-		console.log(error);
-		return { ok: false, error: 'Erro ao atualizar usuário.', data: null, status: 500 };
+		console.error('[usuarios.atualizar]', error);
+		const prismaMessage =
+			error && typeof error === 'object' && 'message' in error
+				? String((error as { message?: unknown }).message ?? '')
+				: '';
+		const mensagem =
+			prismaMessage.includes('ADM_ARTHUR_SABOYA') ||
+			prismaMessage.includes('Invalid value') ||
+			prismaMessage.includes('Foreign key')
+				? prismaMessage
+				: 'Erro ao atualizar usuário.';
+		return { ok: false, error: mensagem, data: null, status: 500 };
 	}
 }
