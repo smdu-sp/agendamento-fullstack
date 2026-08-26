@@ -70,12 +70,25 @@ export default function ImportarPlanilhaForm() {
           }
 
           if (resp.ok && resp.data) {
-            const resultado = resp.data as { importados: number; erros: number };
+            const resultado = resp.data as {
+              importados: number;
+              erros: number;
+              reunioesAgendadas?: number;
+              reunioesFalhas?: number;
+            };
 
             if (resultado.importados > 0) {
+              const extraReunioes =
+                typeof resultado.reunioesAgendadas === "number"
+                  ? ` ${resultado.reunioesAgendadas} reunião(ões) Teams criada(s).`
+                  : "";
+              const extraFalhas =
+                resultado.reunioesFalhas
+                  ? ` ${resultado.reunioesFalhas} reunião(ões) não puderam ser criadas automaticamente.`
+                  : "";
               toast.success("Planilha importada com sucesso", {
-                description: `${resultado.importados} agendamento(s) importado(s) com sucesso.${resultado.erros > 0 ? ` ${resultado.erros} linha(s) com erro(s) foram ignoradas.` : ""}`,
-                duration: 5000,
+                description: `${resultado.importados} agendamento(s) importado(s).${extraReunioes}${extraFalhas}${resultado.erros > 0 ? ` ${resultado.erros} linha(s) com erro(s) foram ignoradas.` : ""}`,
+                duration: 6000,
               });
             } else {
               toast.warning("Nenhum agendamento importado", {

@@ -24,6 +24,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import * as agendamentoClient from "@/services/agendamentos/client-functions";
+import type { IAgendamento } from "@/types/agendamento";
 import { useRouter } from "next/navigation";
 
 interface AtribuirTecnicoProps {
@@ -92,9 +93,20 @@ export default function AtribuirTecnico({
       if (resp.error) {
         toast.error("Erro ao atribuir técnico", { description: resp.error });
       } else {
-        toast.success("Técnico atribuído com sucesso", {
-          description: `${tecnico.nome} foi atribuído ao agendamento.`,
-        });
+        const atualizado = resp.data as IAgendamento | null;
+        if (atualizado?.teamsJoinUrl) {
+          toast.success("Técnico atribuído e reunião Teams criada", {
+            description: `${tecnico.nome} foi atribuído e o convite foi enviado.`,
+          });
+        } else if (atualizado?.teamsUltimoErro) {
+          toast.warning("Técnico atribuído, mas a reunião não foi criada", {
+            description: atualizado.teamsUltimoErro,
+          });
+        } else {
+          toast.success("Técnico atribuído com sucesso", {
+            description: `${tecnico.nome} foi atribuído ao agendamento.`,
+          });
+        }
         setSelectedTecnico(tecnico);
         setOpen(false);
         if (onSuccess) {

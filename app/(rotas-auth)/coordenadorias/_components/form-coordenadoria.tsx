@@ -146,7 +146,7 @@ export default function FormCoordenadoria({
 							</FormControl>
 							<FormMessage />
 							<p className='text-xs text-muted-foreground'>
-								Usado no Outlook para enviar o convite de reunião (quem envia é a coordenadoria).
+								Usado como participante da reunião Teams (convite enviado à coordenadoria).
 							</p>
 						</FormItem>
 					)}

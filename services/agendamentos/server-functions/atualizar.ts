@@ -23,6 +23,7 @@ import {
 	padronizarNome,
 	usuarioPodeSerTecnicoAtribuido,
 } from '@/lib/agendamentos-core';
+import { criarReuniaoTeamsSePossivel } from '@/lib/agendamentos-teams';
 
 export async function atualizar(id: string, data: IUpdateAgendamento): Promise<IRespostaAgendamento> {
 	const usuarioLogado = await requireUsuarioOuRedirect();
@@ -37,6 +38,8 @@ export async function atualizar(id: string, data: IUpdateAgendamento): Promise<I
 				status: true,
 				dataHora: true,
 				processo: true,
+				tecnicoId: true,
+				teamsEventId: true,
 				tipoAgendamento: { select: { texto: true } },
 			},
 		});
@@ -138,6 +141,22 @@ export async function atualizar(id: string, data: IUpdateAgendamento): Promise<I
 			include: INCLUDE_AGENDAMENTO,
 		});
 
+		const tecnicoFoiAtribuido =
+			!!tecnicoId &&
+			!agendamentoAtual.tecnicoId &&
+			!agendamentoAtual.teamsEventId &&
+			agendamentoAtualizado.status === StatusAgendamento.SOLICITADO;
+		if (tecnicoFoiAtribuido) {
+			await criarReuniaoTeamsSePossivel(id);
+		}
+
+		const agendamentoResposta = tecnicoFoiAtribuido
+			? await prisma.agendamento.findUnique({
+					where: { id },
+					include: INCLUDE_AGENDAMENTO,
+				})
+			: agendamentoAtualizado;
+
 		// Pré-projeto Arthur Saboya: SOLICITADO -> AGENDADO marca a solicitação e avisa o munícipe.
 		const tipoPreArthur =
 			(agendamentoAtual.tipoAgendamento?.texto ?? '').trim() === PRE_PROJETO_TIPO_AGENDAMENTO_TEXTO;
@@ -174,7 +193,12 @@ export async function atualizar(id: string, data: IUpdateAgendamento): Promise<I
 		}
 
 		revalidateTag('agendamentos');
-		return { ok: true, error: null, data: agendamentoAtualizado as unknown as IAgendamento, status: 200 };
+		return {
+			ok: true,
+			error: null,
+			data: (agendamentoResposta ?? agendamentoAtualizado) as unknown as IAgendamento,
+			status: 200,
+		};
 	} catch (error) {
 		if (error instanceof AuthzError) {
 			return { ok: false, error: error.message, data: null, status: error.status };

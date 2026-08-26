@@ -1,9 +1,18 @@
 /** @format */
 
+"use client";
+
+import { useState } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { IAgendamento } from "@/types/agendamento";
-import { formatarDataHoraSaoPaulo } from "@/lib/date-time";
+import { formatarDataHoraSaoPaulo, formatarDuracaoSegundos } from "@/lib/date-time";
+import { ReuniaoTeamsDialog } from "./reuniao-teams-dialog";
+import { Video } from "lucide-react";
+import { useEffectivePermissao } from "@/providers/ImpersonationProvider";
 
 function formatarData(data?: Date | string | null) {
   return formatarDataHoraSaoPaulo(data, true);
@@ -11,10 +20,19 @@ function formatarData(data?: Date | string | null) {
 
 function statusLabel(status: string) {
   if (status === "NAO_REALIZADO") return "Não Realizado";
+  if (status === "CANCELADO") return "Cancelado";
   return status.charAt(0) + status.slice(1).toLowerCase();
 }
 
 export function AgendamentoDetalheView({ agendamento }: { agendamento: IAgendamento }) {
+  const { data: session } = useSession();
+  const router = useRouter();
+  const effectivePermissao = useEffectivePermissao();
+  const [dialogAberto, setDialogAberto] = useState(false);
+  const permissao = String(effectivePermissao ?? session?.usuario?.permissao ?? "");
+  const podeGerenciar = ["PONTO_FOCAL", "COORDENADOR", "ADM", "DEV"].includes(permissao);
+  const presencas = agendamento.presencasReuniao ?? [];
+
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <Card className="border-[#E5EAF2]">
@@ -31,6 +49,12 @@ export function AgendamentoDetalheView({ agendamento }: { agendamento: IAgendame
             <span className="font-semibold">Status:</span>
             <Badge variant="outline">{statusLabel(agendamento.status)}</Badge>
           </div>
+          {agendamento.motivoCancelamento && (
+            <p>
+              <span className="font-semibold">Motivo do cancelamento:</span>{" "}
+              {agendamento.motivoCancelamento}
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -55,6 +79,49 @@ export function AgendamentoDetalheView({ agendamento }: { agendamento: IAgendame
       </Card>
 
       <Card className="border-[#E5EAF2] lg:col-span-2">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardTitle>Reunião Teams</CardTitle>
+          <Button size="sm" variant="outline" onClick={() => setDialogAberto(true)}>
+            <Video className="mr-1 h-4 w-4" />
+            Ver reunião
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-[#334155]">
+          {agendamento.teamsJoinUrl ? (
+            <p>
+              <a
+                href={agendamento.teamsJoinUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 underline"
+              >
+                Entrar na reunião
+              </a>
+            </p>
+          ) : (
+            <p>Nenhuma reunião Teams criada ainda.</p>
+          )}
+          {agendamento.teamsOrganizerEmail && (
+            <p>
+              <span className="font-semibold">Marcador:</span> {agendamento.teamsOrganizerEmail}
+            </p>
+          )}
+          {presencas.length > 0 ? (
+            <ul className="space-y-1">
+              {presencas.map((p) => (
+                <li key={p.id}>
+                  {p.displayName || p.email || "Participante"} —{" "}
+                  {formatarDuracaoSegundos(p.durationSeconds)}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>Sem dados de presença sincronizados.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-[#E5EAF2] lg:col-span-2">
         <CardHeader>
           <CardTitle>Resumo</CardTitle>
         </CardHeader>
@@ -62,6 +129,14 @@ export function AgendamentoDetalheView({ agendamento }: { agendamento: IAgendame
           {agendamento.resumo?.trim() || "Sem resumo informado."}
         </CardContent>
       </Card>
+
+      <ReuniaoTeamsDialog
+        agendamento={agendamento}
+        open={dialogAberto}
+        onOpenChange={setDialogAberto}
+        podeGerenciar={podeGerenciar}
+        onAtualizado={() => router.refresh()}
+      />
     </div>
   );
 }

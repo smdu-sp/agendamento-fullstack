@@ -22,6 +22,33 @@ export function instanteUtcRealDesdeDataHoraApi(entrada: Date | string): Date {
   );
 }
 
+/** Indica se o horário de término da reunião (civil SP) já passou. */
+export function reuniaoJaTerminou(
+  dataFim: Date | string | null | undefined,
+  dataHora?: Date | string | null,
+): boolean {
+  const bruto = dataFim ?? (dataHora ? somarMinutosCivil(dataHora, 60) : null);
+  if (!bruto) return false;
+  const fimReal = instanteUtcRealDesdeDataHoraApi(bruto);
+  if (Number.isNaN(fimReal.getTime())) return false;
+  return Date.now() >= fimReal.getTime();
+}
+
+function somarMinutosCivil(entrada: Date | string, minutos: number): Date {
+  const d = typeof entrada === "string" ? new Date(entrada) : entrada;
+  return new Date(d.getTime() + minutos * 60 * 1000);
+}
+
+export function formatarDuracaoSegundos(segundos: number | null | undefined): string {
+  if (segundos == null || Number.isNaN(segundos) || segundos < 0) return "—";
+  const h = Math.floor(segundos / 3600);
+  const m = Math.floor((segundos % 3600) / 60);
+  const s = Math.floor(segundos % 60);
+  if (h > 0) return `${h}h ${m}min`;
+  if (m > 0) return `${m} min`;
+  return `${s}s`;
+}
+
 export function formatarDataHoraSaoPaulo(
   valor: DateInput,
   incluirAs: boolean = false,

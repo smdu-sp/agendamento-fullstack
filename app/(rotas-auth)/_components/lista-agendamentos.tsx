@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as agendamento from "@/services/agendamentos";
-import { IAgendamento } from "@/types/agendamento";
+import { IAgendamento, IResultadoPresenca, StatusAgendamento } from "@/types/agendamento";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Eye, Search } from "lucide-react";
+import { CalendarIcon, Eye, Search, Pencil, CheckCircle2, Video } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -29,52 +29,17 @@ import { cn } from "@/lib/utils";
 import Pagination from "@/components/pagination";
 import AtribuirTecnico from "./atribuir-tecnico";
 import ConfirmarAtendimento from "./confirmar-atendimento";
-import { Pencil, CheckCircle2 } from "lucide-react";
-import { StatusAgendamento } from "@/types/agendamento";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { toast } from "sonner";
+import { ReuniaoTeamsDialog } from "./reuniao-teams-dialog";
 import { useEffectivePermissao } from "@/providers/ImpersonationProvider";
-import { abrirOutlookComposeAgendamentoTecnico } from "@/lib/outlook-agendamento-teams";
 import {
   formatarDataHoraSaoPaulo,
-  instanteUtcRealDesdeDataHoraApi,
+  reuniaoJaTerminou,
 } from "@/lib/date-time";
 import Link from "@/components/link";
-
-/** Converte valor da API (ISO em UTC) para `Date` do instante correto; formata no fuso do navegador. */
-const paraDateAgendamento = (data: Date | string): Date =>
-  typeof data === "string" ? new Date(data) : data;
 
 const formatarDataHora = (data: Date | string): string => {
   return formatarDataHoraSaoPaulo(data, true);
 };
-
-function montarAssuntoEIntervaloIsoOutlook(agend: IAgendamento) {
-  const coordenadoriaSigla = agend.coordenadoria?.sigla ?? "";
-  const processo = agend.processo ?? "";
-  const assunto =
-    `Agendamento Técnico - ${coordenadoriaSigla} - Processo: ${processo}`.trim();
-  const inicio = paraDateAgendamento(agend.dataHora);
-  const fim = agend.dataFim
-    ? paraDateAgendamento(agend.dataFim)
-    : new Date(inicio.getTime() + 60 * 60 * 1000);
-  const inicioUtc = instanteUtcRealDesdeDataHoraApi(inicio);
-  const fimUtc = instanteUtcRealDesdeDataHoraApi(fim);
-  return {
-    assunto,
-    inicioIso: inicioUtc.toISOString(),
-    fimIso: fimUtc.toISOString(),
-  };
-}
 
 const PROCESSO_DIGITAL_REGEX = /^\d{4}\.\d{4}\/\d{7}-\d$/;
 
@@ -117,10 +82,10 @@ export default function ListaAgendamentos({
   const effectivePermissao = useEffectivePermissao();
   const [agendamentoParaConfirmar, setAgendamentoParaConfirmar] =
     useState<IAgendamento | null>(null);
-  const [agendamentoParaConfirmarOutlook, setAgendamentoParaConfirmarOutlook] =
+  const [agendamentoReuniao, setAgendamentoReuniao] =
     useState<IAgendamento | null>(null);
-  const [confirmandoOutlook, setConfirmandoOutlook] = useState(false);
   const [buscaInput, setBuscaInput] = useState(busca);
+  const idsPresencaTentados = useRef(new Set<string>());
 
   const atualizarUrl = useCallback(
     (updates: {
@@ -229,49 +194,42 @@ export default function ListaAgendamentos({
     });
   };
 
-  const handleAgendarReuniaoOutlook = (agend: IAgendamento) => {
-    const emailCoordenadoria = agend.coordenadoria?.email?.trim();
-    if (!emailCoordenadoria) {
-      toast.error("E-mail da coordenadoria não cadastrado", {
-        description:
-          "Cadastre o e-mail da coordenadoria na página de Coordenadorias para que o convite seja enviado pela coordenadoria.",
-      });
-      return;
+  useEffect(() => {
+    if (!agendamentoReuniao) return;
+    const atual = agendamentos.find((a) => a.id === agendamentoReuniao.id);
+    if (atual && atual !== agendamentoReuniao) {
+      setAgendamentoReuniao(atual);
     }
+  }, [agendamentos, agendamentoReuniao]);
 
-    const { assunto, inicioIso, fimIso } = montarAssuntoEIntervaloIsoOutlook(agend);
-    const emailMunicipe = (agend.email || "").trim();
-    const emailTecnico = (agend.tecnico?.email || "").trim();
+  useEffect(() => {
+    const pendentes = agendamentos.filter(
+      (a) =>
+        a.status === StatusAgendamento.AGENDADO &&
+        Boolean(a.teamsEventId || a.teamsJoinUrl) &&
+        reuniaoJaTerminou(a.dataFim, a.dataHora) &&
+        !idsPresencaTentados.current.has(a.id),
+    );
+    if (!pendentes.length) return;
 
-    abrirOutlookComposeAgendamentoTecnico({
-      emailOrganizadorCoordenadoria: emailCoordenadoria,
-      assunto,
-      inicioIso,
-      fimIso,
-      emailsParticipantes: [emailMunicipe, emailTecnico],
-    });
-    setAgendamentoParaConfirmarOutlook(agend);
-  };
-
-  const handleConfirmarAgendadoOutlook = async (confirmado: boolean) => {
-    if (!agendamentoParaConfirmarOutlook || !session?.access_token) {
-      setAgendamentoParaConfirmarOutlook(null);
-      return;
-    }
-    if (confirmado) {
-      setConfirmandoOutlook(true);
-      try {
-        const res = await agendamento.atualizar(
-          agendamentoParaConfirmarOutlook.id,
-          { status: StatusAgendamento.AGENDADO },
-        );
-        if (res.ok) recarregar();
-      } finally {
-        setConfirmandoOutlook(false);
+    let cancelado = false;
+    void (async () => {
+      let mudou = false;
+      for (const item of pendentes) {
+        idsPresencaTentados.current.add(item.id);
+        const res = await agendamento.sincronizarPresenca(item.id, false);
+        if (cancelado) return;
+        if (!res.ok) continue;
+        const dados = res.data as IResultadoPresenca | null;
+        if (dados?.statusAlterado) mudou = true;
       }
-    }
-    setAgendamentoParaConfirmarOutlook(null);
-  };
+      if (mudou) recarregar();
+    })();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [agendamentos, recarregar]);
 
   return (
     <div className="space-y-5">
@@ -507,11 +465,21 @@ export default function ListaAgendamentos({
                       isPontoFocal ||
                       isCoordenador);
 
-                  // Agendar reunião: ponto focal, coordenador ou ADM/DEV, com técnico atribuído e status SOLICITADO
+                  const podeGerenciarReuniao =
+                    isPontoFocal || isCoordenador || isAdm || isDev;
+                  const temReuniaoTeams = Boolean(
+                    agend.teamsEventId || agend.teamsJoinUrl,
+                  );
                   const podeAgendarReuniao =
-                    (isPontoFocal || isCoordenador || isAdm || isDev) &&
+                    podeGerenciarReuniao &&
                     !semTecnico &&
                     agend.status === StatusAgendamento.SOLICITADO;
+                  const podeVerReuniao =
+                    temReuniaoTeams ||
+                    podeAgendarReuniao ||
+                    agend.status === StatusAgendamento.CANCELADO ||
+                    (podeGerenciarReuniao &&
+                      agend.status === StatusAgendamento.AGENDADO);
 
                   // Aplica cor de fundo: vermelho para importação Outlook; amarelo para sem técnico/AGENDADO
                   const importadoOutlook = !!agend.importadoOutlook;
@@ -626,15 +594,21 @@ export default function ListaAgendamentos({
                           </Button>
                         ) : null}
 
-                        {(isPontoFocal || isCoordenador || isAdm || isDev) && (
+                        {(podeGerenciarReuniao || temReuniaoTeams) && podeVerReuniao && (
                           <Button
                             size="sm"
                             variant="outline"
                             className="ml-2"
-                            disabled={!podeAgendarReuniao}
-                            onClick={() => handleAgendarReuniaoOutlook(agend)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setAgendamentoReuniao(agend);
+                            }}
                           >
-                            Agendar reunião
+                            <Video className="h-4 w-4 mr-1" />
+                            {temReuniaoTeams ||
+                            agend.status === StatusAgendamento.CANCELADO
+                              ? "Ver reunião"
+                              : "Agendar reunião"}
                           </Button>
                         )}
 
@@ -677,35 +651,21 @@ export default function ListaAgendamentos({
         />
       )}
 
-      <AlertDialog
-        open={!!agendamentoParaConfirmarOutlook}
-        onOpenChange={(open) => !open && setAgendamentoParaConfirmarOutlook(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Foi agendado no Outlook?</AlertDialogTitle>
-            <AlertDialogDescription>
-              O Outlook Web foi aberto com o usuário logado. Após criar a
-              reunião no Outlook, confirme aqui para atualizar o status do
-              agendamento para &quot;Agendado&quot;.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              onClick={() => handleConfirmarAgendadoOutlook(false)}
-              disabled={confirmandoOutlook}
-            >
-              Não
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => handleConfirmarAgendadoOutlook(true)}
-              disabled={confirmandoOutlook}
-            >
-              {confirmandoOutlook ? "Atualizando…" : "Sim"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {agendamentoReuniao && (
+        <ReuniaoTeamsDialog
+          agendamento={agendamentoReuniao}
+          open={!!agendamentoReuniao}
+          onOpenChange={(open) => {
+            if (!open) setAgendamentoReuniao(null);
+          }}
+          podeGerenciar={["PONTO_FOCAL", "COORDENADOR", "ADM", "DEV"].includes(
+            String(effectivePermissao ?? session?.usuario?.permissao ?? ""),
+          )}
+          onAtualizado={() => {
+            recarregar();
+          }}
+        />
+      )}
     </div>
   );
 }

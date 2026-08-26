@@ -15,10 +15,17 @@ import {
 	registrarImportacaoPlanilha,
 	registrarImportacaoOutlook,
 } from '@/lib/agendamentos-core';
+import { agendarReunioesEmLote } from '@/lib/agendamentos-teams';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-export type ResultadoImportacao = { importados: number; erros: number; duplicados: number };
+export type ResultadoImportacao = {
+	importados: number;
+	erros: number;
+	duplicados: number;
+	reunioesAgendadas?: number;
+	reunioesFalhas?: number;
+};
 
 // ===================================================================================
 // PLANILHA PADRÃO (SMUL)
@@ -160,6 +167,7 @@ async function processarImportacaoPlanilha(
 	let importados = 0;
 	let erros = 0;
 	let duplicados = 0;
+	const idsParaAgendar: string[] = [];
 
 	if (!dadosPlanilha || !Array.isArray(dadosPlanilha)) {
 		throw new Error('Dados da planilha inválidos');
@@ -451,7 +459,7 @@ async function processarImportacaoPlanilha(
 
 			try {
 				const divisaoIdImport = await divisaoIdDoTecnico(tecnicoId);
-				await prisma.agendamento.create({
+				const criado = await prisma.agendamento.create({
 					data: {
 						municipe: municipe ? padronizarNome(String(municipe).trim()) : null,
 						cpf: cpf ? String(cpf).trim() : null,
@@ -470,6 +478,7 @@ async function processarImportacaoPlanilha(
 					},
 				});
 				importados++;
+				if (tecnicoId) idsParaAgendar.push(criado.id);
 			} catch (dbError) {
 				console.error(`Linha ${index + 1}: Erro ao criar no banco de dados:`, (dbError as Error).message);
 				erros++;
@@ -481,7 +490,14 @@ async function processarImportacaoPlanilha(
 	}
 
 	await registrarImportacaoPlanilha(importados, usuarioId);
-	return { importados, erros, duplicados };
+	let reunioesAgendadas = 0;
+	let reunioesFalhas = 0;
+	if (idsParaAgendar.length) {
+		const r = await agendarReunioesEmLote(idsParaAgendar);
+		reunioesAgendadas = r.agendadas;
+		reunioesFalhas = r.falhas;
+	}
+	return { importados, erros, duplicados, reunioesAgendadas, reunioesFalhas };
 }
 
 export async function importarPlanilhaDeBuffer(

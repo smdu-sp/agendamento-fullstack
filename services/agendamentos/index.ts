@@ -27,4 +27,7 @@ export {
   excluir,
   importarPlanilha,
   importarPlanilhaOutlook,
+  agendarReuniaoTeams,
+  cancelarReuniaoTeams,
+  sincronizarPresenca,
 } from "./server-functions";

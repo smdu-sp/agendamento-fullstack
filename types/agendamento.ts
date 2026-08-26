@@ -28,6 +28,15 @@ export interface IAgendamento {
   tecnicoRF?: string;
   email?: string;
   status: StatusAgendamento;
+  teamsEventId?: string | null;
+  teamsJoinUrl?: string | null;
+  teamsMeetingId?: string | null;
+  teamsOrganizerEmail?: string | null;
+  teamsUltimoErro?: string | null;
+  motivoCancelamento?: string | null;
+  canceladoEm?: Date | string | null;
+  canceladoPorId?: string | null;
+  presencaSincronizadaEm?: Date | string | null;
   criadoEm: Date;
   atualizadoEm: Date;
   tipoAgendamento?: { id: string; texto: string } | null;
@@ -40,6 +49,19 @@ export interface IAgendamento {
     email: string;
     divisao?: { sigla: string } | null;
   } | null;
+  canceladoPor?: { id: string; nome: string } | null;
+  presencasReuniao?: IPresencaReuniao[];
+}
+
+export interface IPresencaReuniao {
+  id: string;
+  agendamentoId: string;
+  displayName?: string | null;
+  email?: string | null;
+  role?: string | null;
+  durationSeconds?: number | null;
+  joinDateTime?: Date | string | null;
+  leaveDateTime?: Date | string | null;
 }
 
 export interface ICreateAgendamento {
@@ -90,6 +112,21 @@ export interface IUltimaImportacaoOutlook {
   usuarioNome?: string | null;
 }
 
+export interface IResultadoImportacao {
+  importados: number;
+  erros: number;
+  duplicados?: number;
+  reunioesAgendadas?: number;
+  reunioesFalhas?: number;
+}
+
+export interface IResultadoPresenca {
+  statusAlterado: boolean;
+  aguardandoRelatorio: boolean;
+  temPresenca: boolean;
+  agendamento?: IAgendamento;
+}
+
 export interface IRespostaAgendamento {
   ok: boolean;
   error: string | null;
@@ -98,7 +135,8 @@ export interface IRespostaAgendamento {
     | IAgendamento[]
     | IPaginadoAgendamento
     | { excluido: boolean }
-    | { importados: number; erros: number }
+    | IResultadoImportacao
+    | IResultadoPresenca
     | null;
   status: number;
 }

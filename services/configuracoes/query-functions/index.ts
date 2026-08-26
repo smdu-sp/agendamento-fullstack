@@ -1,0 +1,1 @@
+export { buscarConfiguracaoReunioes } from './buscar';

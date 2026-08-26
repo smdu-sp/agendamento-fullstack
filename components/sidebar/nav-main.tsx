@@ -19,6 +19,7 @@ import {
   ClipboardList,
   CalendarSearch,
   Mail,
+  Settings,
 } from "lucide-react";
 
 import {
@@ -102,6 +103,11 @@ export async function NavMain() {
       icone: ListX,
       titulo: "Motivos de não atendimento",
       url: "/motivos",
+    },
+    {
+      icone: Settings,
+      titulo: "Configurações",
+      url: "/configuracoes",
     },
     {
       icone: Upload,
@@ -228,6 +234,16 @@ export async function NavMain() {
                     <Link href="/usuarios">
                       <Users />
                       <span>Usuários</span>
+                    </Link>
+                  </SidebarMenuItem>
+                )}
+                {["PONTO_FOCAL", "COORDENADOR"].includes(
+                  usuario.permissao.toString(),
+                ) && (
+                  <SidebarMenuItem className="z-50">
+                    <Link href="/configuracoes">
+                      <Settings />
+                      <span>Configurações</span>
                     </Link>
                   </SidebarMenuItem>
                 )}

@@ -34,6 +34,8 @@ export const INCLUDE_AGENDAMENTO = {
 			divisao: { select: { sigla: true } },
 		},
 	},
+	canceladoPor: { select: { id: true, nome: true } },
+	presencasReuniao: { orderBy: { joinDateTime: 'asc' } },
 } satisfies Prisma.AgendamentoInclude;
 
 // --- Env helpers ---

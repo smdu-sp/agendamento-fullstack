@@ -24,11 +24,13 @@ model Usuario {
   divisaoId    String?
 
   agendamentos           Agendamento[]
+  agendamentosCancelados Agendamento[]           @relation("AgendamentoCanceladoPor")
   solicitacoesPreProjetoArthurComoTecnicoArthur SolicitacaoPreProjetoArthurSaboya[] @relation("SolicitacaoArthurTecnico")
   divisao                Divisao?                @relation(fields: [divisaoId], references: [id], onDelete: SetNull)
   logImportacoesPlanilha LogImportacaoPlanilha[]
   logImportacoesOutlook  LogImportacaoOutlook[]
   mensagensPreProjetoArthurSaboya SolicitacaoPreProjetoArthurSaboyaMensagem[]
+  configuracoesAtualizadas ConfiguracaoSistema[]
 
   @@map("usuarios")
 }
@@ -53,6 +55,16 @@ model Agendamento {
   email                     String?
   status                    StatusAgendamento @default(SOLICITADO)
 
+  teamsEventId           String?   @db.Text
+  teamsJoinUrl           String?   @db.Text
+  teamsMeetingId         String?   @db.Text
+  teamsOrganizerEmail    String?   @db.VarChar(255)
+  teamsUltimoErro        String?   @db.Text
+  motivoCancelamento     String?   @db.Text
+  canceladoEm            DateTime?
+  canceladoPorId         String?
+  presencaSincronizadaEm DateTime?
+
   criadoEm     DateTime @default(now())
   atualizadoEm DateTime @default(now()) @updatedAt
 
@@ -61,6 +73,8 @@ model Agendamento {
   coordenadoria        Coordenadoria?   @relation(fields: [coordenadoriaId], references: [id], onDelete: NoAction)
   divisao              Divisao?         @relation(fields: [divisaoId], references: [id], onDelete: SetNull)
   tecnico              Usuario?         @relation(fields: [tecnicoId], references: [id], onDelete: NoAction)
+  canceladoPor         Usuario?         @relation("AgendamentoCanceladoPor", fields: [canceladoPorId], references: [id], onDelete: SetNull)
+  presencasReuniao     PresencaReuniao[]
 
   solicitacaoPreProjetoArthurSaboya SolicitacaoPreProjetoArthurSaboya?
 
@@ -243,6 +257,34 @@ model LogImportacaoOutlook {
   usuario   Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
 
   @@map("log_importacao_outlook")
+}
+
+/// E-mail da caixa que cria as reuniões no Microsoft Teams (Graph).
+model ConfiguracaoSistema {
+  chave           String   @id
+  valor           String   @db.Text
+  atualizadoEm    DateTime @default(now()) @updatedAt
+  atualizadoPorId String?
+  atualizadoPor   Usuario? @relation(fields: [atualizadoPorId], references: [id], onDelete: SetNull)
+
+  @@map("configuracoes_sistema")
+}
+
+/// Participantes da reunião Teams (relatório de presença do Graph).
+model PresencaReuniao {
+  id               String    @id @default(uuid())
+  agendamentoId    String
+  displayName      String?   @db.VarChar(255)
+  email            String?   @db.VarChar(255)
+  role             String?   @db.VarChar(64)
+  durationSeconds  Int?
+  joinDateTime     DateTime?
+  leaveDateTime    DateTime?
+
+  agendamento Agendamento @relation(fields: [agendamentoId], references: [id], onDelete: Cascade)
+
+  @@index([agendamentoId])
+  @@map("presencas_reuniao")
 }
 
 model MunicipeConta {
