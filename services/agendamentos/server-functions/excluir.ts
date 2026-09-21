@@ -15,7 +15,7 @@ export async function excluir(id: string): Promise<IRespostaAgendamento> {
 
 		await prisma.agendamento.delete({ where: { id } });
 
-		revalidateTag('agendamentos');
+		revalidateTag('agendamentos', 'max');
 		return { ok: true, error: null, data: { excluido: true }, status: 200 };
 	} catch (error) {
 		if (error instanceof AuthzError) {

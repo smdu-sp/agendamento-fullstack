@@ -13,6 +13,7 @@ import {
 	divisaoPreProjetosEnv,
 	whereExcluirPreProjetoArthurNaListaAgendamentos,
 } from '@/lib/agendamentos-core';
+import { whereExcluirConferenciaCapPendente } from '@/lib/portal-processos-core';
 import { IAgendamento, IRespostaAgendamento } from '@/types/agendamento';
 
 export async function buscarDoDia(): Promise<IRespostaAgendamento> {
@@ -97,7 +98,13 @@ export async function buscarDoDia(): Promise<IRespostaAgendamento> {
 		}
 
 		const agendamentos = await prisma.agendamento.findMany({
-			where: { AND: [whereClause, whereExcluirPreProjetoArthurNaListaAgendamentos()] },
+			where: {
+				AND: [
+					whereClause,
+					whereExcluirPreProjetoArthurNaListaAgendamentos(),
+					whereExcluirConferenciaCapPendente(),
+				],
+			},
 			orderBy: { dataHora: 'asc' },
 			include: INCLUDE_AGENDAMENTO,
 		});

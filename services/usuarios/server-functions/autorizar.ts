@@ -15,7 +15,7 @@ export async function autorizar(id: string): Promise<IRespostaUsuario> {
 
 		const autorizado = await prisma.usuario.update({ where: { id }, data: { status: true } });
 		if (autorizado && autorizado.status === true) {
-			revalidateTag('users');
+			revalidateTag('users', 'max');
 			return { ok: true, error: null, data: { autorizado: true }, status: 200 };
 		}
 		return { ok: false, error: 'Erro ao autorizar o usuário.', data: null, status: 403 };

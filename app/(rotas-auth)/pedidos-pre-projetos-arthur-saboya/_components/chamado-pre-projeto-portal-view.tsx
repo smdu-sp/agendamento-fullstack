@@ -37,6 +37,10 @@ import {
   copiarCorpoConviteOutlookAgendamentoTecnico,
   DURACAO_REUNIAO_ARTHUR_SABOYA_MS,
 } from "@/lib/outlook-agendamento-teams";
+import {
+  EMAIL_SABOYA_ATENDIMENTO,
+  montarAssuntoReuniaoArthurSaboya,
+} from "@/lib/reuniao-teams-titulos";
 import { formatarDataHoraSaoPaulo, instanteUtcRealDesdeDataHoraApi } from "@/lib/date-time";
 import type { ISolicitacaoPreProjetoArthurSaboyaDetalhe } from "@/types/solicitacao-pre-projeto-arthur-saboya";
 import type { ICoordenadoria } from "@/types/coordenadoria";
@@ -171,6 +175,8 @@ export default function ChamadoPreProjetoPortalView({
   const [salvando, setSalvando] = useState(false);
   const [agendamentoIdParaConfirmarOutlook, setAgendamentoIdParaConfirmarOutlook] = useState<string | null>(null);
   const [confirmandoOutlook, setConfirmandoOutlook] = useState(false);
+  const [falhaTeamsMensagem, setFalhaTeamsMensagem] = useState<string | null>(null);
+  const [assuntoOutlookFallback, setAssuntoOutlookFallback] = useState("");
   const carregandoRealtimeRef = useRef(false);
 
   const mensagensChat = useMemo(
@@ -420,6 +426,57 @@ export default function ChamadoPreProjetoPortalView({
       }
     }
     setAgendamentoIdParaConfirmarOutlook(null);
+    setFalhaTeamsMensagem(null);
+    setAssuntoOutlookFallback("");
+  };
+
+  const abrirOutlookFallback = () => {
+    if (!chamado) return;
+    const emailCoordenadoria = (
+      listaCoord.find((c) => c.id === chamado.coordenadoriaId)?.email ||
+      chamado.emailContatoDivisao ||
+      ""
+    ).trim();
+    const tecnicoSelecionado = tecnicosCoordenadoria.find(
+      (t) => t.id === tecnicoCoordenadoriaId,
+    );
+    const emailTecnico = (tecnicoSelecionado?.email || chamado.emailTecnicoCoordenadoria || "").trim();
+    const emailMunicipe = (chamado.email || "").trim();
+    const emailTecnicoArthur = (chamado.tecnicoArthurEmail || "").trim();
+    const dataBase = chamado.dataAgendamento
+      ? instanteUtcRealDesdeDataHoraApi(chamado.dataAgendamento)
+      : null;
+    if (!emailCoordenadoria || !dataBase || Number.isNaN(dataBase.getTime())) {
+      toast.error("Não foi possível abrir o Outlook: dados incompletos.");
+      return;
+    }
+    const dataHoraAtendimentoBrasilia = formatarDataHoraSaoPaulo(
+      chamado.dataAgendamento!,
+      true,
+    );
+    copiarCorpoConviteOutlookAgendamentoTecnico(dataHoraAtendimentoBrasilia);
+    abrirOutlookComposeAgendamentoTecnico({
+      emailOrganizadorCoordenadoria: emailCoordenadoria,
+      assunto:
+        assuntoOutlookFallback ||
+        montarAssuntoReuniaoArthurSaboya(chamado.protocolo),
+      inicioIso: dataBase.toISOString(),
+      fimIso: new Date(
+        dataBase.getTime() + DURACAO_REUNIAO_ARTHUR_SABOYA_MS,
+      ).toISOString(),
+      dataHoraAtendimentoBrasilia,
+      corpoViaAreaTransferencia: true,
+      emailsParticipantes: [
+        emailMunicipe,
+        emailTecnico,
+        emailTecnicoArthur,
+        emailCoordenadoria,
+        EMAIL_SABOYA_ATENDIMENTO,
+      ],
+    });
+    toast.info("Texto das condições copiado", {
+      description: "Cole no corpo do convite ao abrir o Outlook (Ctrl+V).",
+    });
   };
 
   const handleConfirmarEAgendar = async () => {
@@ -467,21 +524,7 @@ export default function ChamadoPreProjetoPortalView({
       return;
     }
 
-    const assunto =
-      `Sala Arthur Saboya - Protocolo: ${chamado.protocolo}`.trim();
-    const inicioIso = dataBase.toISOString();
-    const fimIso = new Date(
-      dataBase.getTime() + DURACAO_REUNIAO_ARTHUR_SABOYA_MS,
-    ).toISOString();
-    const dataHoraAtendimentoBrasilia = formatarDataHoraSaoPaulo(
-      chamado.dataAgendamento!,
-      true,
-    );
-    const composeWindow =
-      typeof window !== "undefined" ? window.open("", "_blank") : null;
-    const corpoCopiado = copiarCorpoConviteOutlookAgendamentoTecnico(
-      dataHoraAtendimentoBrasilia,
-    );
+    const assunto = montarAssuntoReuniaoArthurSaboya(chamado.protocolo);
 
     setSalvando(true);
     const res =
@@ -490,42 +533,42 @@ export default function ChamadoPreProjetoPortalView({
         chamado.protocolo,
         { tecnicoId: tecnicoCoordenadoriaId },
       );
-    setSalvando(false);
     if (!res.ok) {
-      if (composeWindow && !composeWindow.closed) {
-        composeWindow.close();
-      }
+      setSalvando(false);
       toast.error(res.error ?? "Falha ao confirmar agendamento.");
       return;
     }
 
-    abrirOutlookComposeAgendamentoTecnico({
-      emailOrganizadorCoordenadoria: emailCoordenadoria,
-      assunto,
-      inicioIso,
-      fimIso,
-      dataHoraAtendimentoBrasilia,
-      corpoViaAreaTransferencia: true,
-      emailsParticipantes: [
-        emailMunicipe,
-        emailTecnico,
-        emailTecnicoArthur,
-        "saboya_atendimento@prefeitura.sp.gov.br",
-      ],
-      targetWindow: composeWindow,
-    });
-    if (corpoCopiado) {
-      toast.info("Texto das condições copiado", {
-        description: "Cole no corpo do convite ao abrir o Outlook (Ctrl+V).",
-      });
-    } else {
-      toast.warning("Cole o texto das condições no convite", {
-        description:
-          "Não foi possível copiar automaticamente. O Outlook abrirá sem o corpo do convite.",
-      });
+    const agendamentoId = res.data?.agendamentoId ?? null;
+    if (!agendamentoId) {
+      setSalvando(false);
+      toast.error("Agendamento criado, mas sem identificador para a reunião Teams.");
+      return;
     }
+
+    const teams = await agendamento.agendarReuniaoTeams(agendamentoId);
+    setSalvando(false);
     setAtribuirCoordAberto(false);
-    setAgendamentoIdParaConfirmarOutlook(res.data?.agendamentoId ?? null);
+
+    if (teams.ok) {
+      toast.success("Reunião Teams criada", {
+        description:
+          "O convite foi enviado ao técnico, ao munícipe, à coordenadoria e à Sala Arthur Saboya.",
+      });
+      void carregarChamado();
+      return;
+    }
+
+    toast.warning("Não foi possível criar a reunião automaticamente", {
+      description:
+        teams.error ||
+        "Os pontos focais foram avisados. Use o Outlook como alternativa.",
+    });
+    setAssuntoOutlookFallback(assunto);
+    setFalhaTeamsMensagem(
+      teams.error || "Falha ao criar a reunião no Microsoft Teams.",
+    );
+    setAgendamentoIdParaConfirmarOutlook(agendamentoId);
     void carregarChamado();
   };
 
@@ -948,28 +991,56 @@ export default function ChamadoPreProjetoPortalView({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Foi agendado no Outlook?</DialogTitle>
+            <DialogTitle>Reunião automática não criada</DialogTitle>
           </DialogHeader>
-          <p className="text-sm">
-            O Outlook Web foi aberto com os participantes preenchidos. Após
-            criar a reunião no Outlook, confirme aqui para atualizar o status
-            do agendamento para <strong>Agendado</strong>.
-          </p>
-          <DialogFooter className="gap-2">
+          <div className="space-y-2 text-sm">
+            <p>
+              Não foi possível criar a reunião no Teams pela caixa{" "}
+              <strong>smuL_agendamento@prefeitura.sp.gov.br</strong>. Os pontos
+              focais da coordenadoria foram avisados por e-mail.
+            </p>
+            {falhaTeamsMensagem ? (
+              <p className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-destructive">
+                {falhaTeamsMensagem}
+              </p>
+            ) : null}
+            <p>
+              Título da reunião:{" "}
+              <strong>
+                {assuntoOutlookFallback ||
+                  (chamado
+                    ? montarAssuntoReuniaoArthurSaboya(chamado.protocolo)
+                    : "—")}
+              </strong>
+            </p>
+            <p>
+              Use o Outlook como alternativa e, depois de criar o convite,
+              confirme abaixo para marcar o agendamento.
+            </p>
+          </div>
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
             <Button
               type="button"
               variant="outline"
               onClick={() => void handleConfirmarAgendadoOutlook(false)}
               disabled={confirmandoOutlook}
             >
-              Não
+              Fechar
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={abrirOutlookFallback}
+              disabled={confirmandoOutlook}
+            >
+              Abrir Outlook (alternativa)
             </Button>
             <Button
               type="button"
               onClick={() => void handleConfirmarAgendadoOutlook(true)}
               disabled={confirmandoOutlook}
             >
-              {confirmandoOutlook ? "Atualizando…" : "Sim"}
+              {confirmandoOutlook ? "Atualizando…" : "Já agendei no Outlook"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1021,7 +1092,7 @@ export default function ChamadoPreProjetoPortalView({
               onClick={() => void handleConfirmarEAgendar()}
               disabled={salvando}
             >
-              Confirmar e agendar
+              Confirmar e agendar reunião
             </Button>
           </DialogFooter>
         </DialogContent>

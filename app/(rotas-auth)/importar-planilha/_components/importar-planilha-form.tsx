@@ -73,6 +73,7 @@ export default function ImportarPlanilhaForm() {
             const resultado = resp.data as {
               importados: number;
               erros: number;
+              duplicados?: number;
               reunioesAgendadas?: number;
               reunioesFalhas?: number;
             };
@@ -84,17 +85,26 @@ export default function ImportarPlanilhaForm() {
                   : "";
               const extraFalhas =
                 resultado.reunioesFalhas
-                  ? ` ${resultado.reunioesFalhas} reunião(ões) não puderam ser criadas automaticamente.`
+                  ? ` ${resultado.reunioesFalhas} reunião(ões) não puderam ser criadas automaticamente. Os pontos focais foram avisados por e-mail.`
+                  : "";
+              const extraDuplicados =
+                resultado.duplicados
+                  ? ` ${resultado.duplicados} já existiam e foram ignorados.`
                   : "";
               toast.success("Planilha importada com sucesso", {
-                description: `${resultado.importados} agendamento(s) importado(s).${extraReunioes}${extraFalhas}${resultado.erros > 0 ? ` ${resultado.erros} linha(s) com erro(s) foram ignoradas.` : ""}`,
+                description: `${resultado.importados} agendamento(s) importado(s).${extraReunioes}${extraFalhas}${extraDuplicados}${resultado.erros > 0 ? ` ${resultado.erros} linha(s) com erro(s) foram ignoradas.` : ""}`,
                 duration: 6000,
+              });
+            } else if (resultado.duplicados && resultado.duplicados > 0) {
+              toast.warning("Nenhum agendamento novo importado", {
+                description: `${resultado.duplicados} registro(s) já existiam no sistema (mesmo processo e data/hora).`,
+                duration: 5000,
               });
             } else {
               toast.warning("Nenhum agendamento importado", {
                 description:
                   resultado.erros > 0
-                    ? `${resultado.erros} erro(s) encontrado(s). Verifique o formato da planilha.`
+                    ? `${resultado.erros} linha(s) não puderam ser lidas. Confira data/hora, processo e e-mails.`
                     : "Nenhum dado válido encontrado na planilha.",
                 duration: 5000,
               });

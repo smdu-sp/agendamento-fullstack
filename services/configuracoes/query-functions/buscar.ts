@@ -5,6 +5,7 @@
 import { IConfiguracaoReunioes, IRespostaConfiguracao, CHAVE_EMAIL_MARCADOR_REUNIOES } from '@/types/configuracao';
 import { prisma } from '@/lib/prisma';
 import { requireUsuario, verificarPermissoes, AuthzError } from '@/lib/authz';
+import { EMAIL_MARCADOR_REUNIOES_PADRAO } from '@/lib/reuniao-teams-titulos';
 
 export async function buscarConfiguracaoReunioes(): Promise<IRespostaConfiguracao> {
   try {
@@ -17,7 +18,7 @@ export async function buscarConfiguracaoReunioes(): Promise<IRespostaConfiguraca
     });
 
     const data: IConfiguracaoReunioes = {
-      emailMarcador: row?.valor?.trim() || '',
+      emailMarcador: row?.valor?.trim() || EMAIL_MARCADOR_REUNIOES_PADRAO,
       atualizadoEm: row?.atualizadoEm ? row.atualizadoEm.toISOString() : null,
       atualizadoPorNome: row?.atualizadoPor?.nome ?? null,
     };

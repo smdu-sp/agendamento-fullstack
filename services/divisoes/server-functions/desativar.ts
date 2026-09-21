@@ -15,7 +15,7 @@ export async function desativar(id: string): Promise<IRespostaDivisao> {
 
 		await prisma.divisao.update({ data: { status: false }, where: { id } });
 
-		revalidateTag('divisoes');
+		revalidateTag('divisoes', 'max');
 		return { ok: true, error: null, data: { desativado: true }, status: 200 };
 	} catch (error) {
 		if (error instanceof AuthzError) {

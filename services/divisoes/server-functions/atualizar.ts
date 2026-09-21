@@ -27,7 +27,7 @@ export async function atualizar(id: string, data: IUpdateDivisao): Promise<IResp
 			select: SELECT_DIVISAO,
 		});
 
-		revalidateTag('divisoes');
+		revalidateTag('divisoes', 'max');
 		return { ok: true, error: null, data: divisaoAtualizada as IDivisao, status: 200 };
 	} catch (error) {
 		if (error instanceof AuthzError) {

@@ -15,7 +15,7 @@ export async function desativar(id: string): Promise<IRespostaTipoAgendamento> {
 
 		await prisma.tipoAgendamento.update({ data: { status: false }, where: { id } });
 
-		revalidateTag('tipos-agendamento');
+		revalidateTag('tipos-agendamento', 'max');
 		return { ok: true, error: null, data: { desativado: true }, status: 200 };
 	} catch (error) {
 		if (error instanceof AuthzError) {

@@ -112,17 +112,26 @@ export default function ImportarPlanilha() {
 					}
 
 					if (resp.ok && resp.data) {
-						const resultado = resp.data as { importados: number; erros: number };
+						const resultado = resp.data as {
+							importados: number;
+							erros: number;
+							duplicados?: number;
+						};
 
 						if (resultado.importados > 0) {
 							toast.success('Planilha importada com sucesso', {
-								description: `${resultado.importados} agendamento(s) importado(s) com sucesso.${resultado.erros > 0 ? ` ${resultado.erros} linha(s) com erro(s) foram ignoradas.` : ''}`,
+								description: `${resultado.importados} agendamento(s) importado(s) com sucesso.${resultado.duplicados ? ` ${resultado.duplicados} já existiam.` : ''}${resultado.erros > 0 ? ` ${resultado.erros} linha(s) com erro(s) foram ignoradas.` : ''}`,
+								duration: 5000,
+							});
+						} else if (resultado.duplicados && resultado.duplicados > 0) {
+							toast.warning('Nenhum agendamento novo importado', {
+								description: `${resultado.duplicados} registro(s) já existiam no sistema (mesmo processo e data/hora).`,
 								duration: 5000,
 							});
 						} else {
 							toast.warning('Nenhum agendamento importado', {
 								description: resultado.erros > 0
-									? `${resultado.erros} erro(s) encontrado(s). Verifique o formato da planilha.`
+									? `${resultado.erros} linha(s) não puderam ser lidas. Confira data/hora, processo e e-mails.`
 									: 'Nenhum dado válido encontrado na planilha.',
 								duration: 5000,
 							});

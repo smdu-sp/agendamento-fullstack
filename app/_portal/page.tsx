@@ -104,8 +104,8 @@ export default function PortalHomePage() {
                 <p
                   className={`${openSans.className} mt-2 w-full max-w-[487px] text-[16px] font-normal leading-6 text-[#4C575F]`}
                 >
-                  Veja seus chamados de pré-projetos (Arthur Saboya), acompanhe o andamento em formato de
-                  conversa e envie mensagens à equipe.
+                  Veja seus chamados de pré-projetos (Arthur Saboya) e os agendamentos de processos
+                  em trâmite, acompanhe o andamento e cancele quando necessário.
                 </p>
               </div>
               <div className="flex h-10 items-start justify-center">

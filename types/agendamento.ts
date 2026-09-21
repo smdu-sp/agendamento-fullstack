@@ -27,6 +27,16 @@ export interface IAgendamento {
   tecnicoId?: string;
   tecnicoRF?: string;
   email?: string;
+  telefone?: string | null;
+  relacaoInteressado?: string | null;
+  origemPortalProcesso?: boolean;
+  conferenciaCapStatus?: "AGUARDANDO" | "ENCAMINHADO" | "NAO_ENCONTRADO" | null;
+  unidadeDespachoBi?: string | null;
+  encontradoNoBi?: boolean | null;
+  biComuniqueSe?: boolean;
+  biIndeferido?: boolean;
+  observacaoCap?: string | null;
+  confirmadoProcessoAusente?: boolean;
   status: StatusAgendamento;
   teamsEventId?: string | null;
   teamsJoinUrl?: string | null;

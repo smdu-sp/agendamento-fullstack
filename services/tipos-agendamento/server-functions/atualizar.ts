@@ -25,7 +25,7 @@ export async function atualizar(
 
 		const atualizado = await prisma.tipoAgendamento.update({ data, where: { id } });
 
-		revalidateTag('tipos-agendamento');
+		revalidateTag('tipos-agendamento', 'max');
 		return { ok: true, error: null, data: atualizado as ITipoAgendamento, status: 200 };
 	} catch (error) {
 		if (error instanceof AuthzError) {

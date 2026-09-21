@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { IAgendamento } from "@/types/agendamento";
 import { formatarDataHoraSaoPaulo, formatarDuracaoSegundos } from "@/lib/date-time";
+import { rotuloRelacaoInteressado } from "@/lib/portal-processos-constantes";
 import { ReuniaoTeamsDialog } from "./reuniao-teams-dialog";
 import { Video } from "lucide-react";
 import { useEffectivePermissao } from "@/providers/ImpersonationProvider";
@@ -42,6 +43,7 @@ export function AgendamentoDetalheView({ agendamento }: { agendamento: IAgendame
         <CardContent className="space-y-3 text-sm">
           <p><span className="font-semibold">Munícipe:</span> {agendamento.municipe || "—"}</p>
           <p><span className="font-semibold">CPF:</span> {agendamento.cpf || "—"}</p>
+          <p><span className="font-semibold">Telefone:</span> {agendamento.telefone || "—"}</p>
           <p><span className="font-semibold">Processo:</span> {agendamento.processo || "—"}</p>
           <p><span className="font-semibold">Data/Hora:</span> {formatarData(agendamento.dataHora)}</p>
           <p><span className="font-semibold">Fim:</span> {formatarData(agendamento.dataFim)}</p>
@@ -71,6 +73,18 @@ export function AgendamentoDetalheView({ agendamento }: { agendamento: IAgendame
             <span className="font-semibold">Tipo de agendamento:</span>{" "}
             {agendamento.tipoAgendamento?.texto || "—"}
           </p>
+          {agendamento.relacaoInteressado ? (
+            <p>
+              <span className="font-semibold">Relação com o projeto:</span>{" "}
+              {rotuloRelacaoInteressado(agendamento.relacaoInteressado)}
+            </p>
+          ) : null}
+          {agendamento.origemPortalProcesso ? (
+            <p>
+              <span className="font-semibold">Origem:</span> Portal do munícipe
+              {agendamento.unidadeDespachoBi ? ` · Unidade BI: ${agendamento.unidadeDespachoBi}` : ""}
+            </p>
+          ) : null}
           <p>
             <span className="font-semibold">Motivo não atendimento:</span>{" "}
             {agendamento.motivoNaoAtendimento?.texto || "—"}

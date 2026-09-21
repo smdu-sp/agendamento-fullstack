@@ -12,12 +12,25 @@ import {
 	divisaoIdDoTecnico,
 	instanteCivilSaoPauloSemDeslocamento,
 	padronizarNome,
+	PRE_PROJETO_TIPO_AGENDAMENTO_TEXTO,
 	registrarImportacaoPlanilha,
 	registrarImportacaoOutlook,
 } from '@/lib/agendamentos-core';
 import { agendarReunioesEmLote } from '@/lib/agendamentos-teams';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
+function erroBancoDesatualizado(error: unknown): string | null {
+	const msg = error instanceof Error ? error.message : String(error ?? '');
+	const code =
+		typeof error === 'object' && error && 'code' in error
+			? String((error as { code: unknown }).code)
+			: '';
+	if (code === 'P2022' || msg.includes('does not exist in the current database')) {
+		return 'O banco de dados está desatualizado (faltam as colunas das reuniões Teams). Rode as migrations do Prisma e importe de novo.';
+	}
+	return null;
+}
 
 export type ResultadoImportacao = {
 	importados: number;
@@ -45,6 +58,14 @@ const CABECALHOS_ESPERADOS_PLANILHA = [
 	'Agendado para',
 ];
 
+function faixaUsadaPlanilha(worksheet: XLSX.WorkSheet): { endCol: string; lastRow: number } {
+	const decoded = XLSX.utils.decode_range(worksheet['!ref'] || 'A1:Q50');
+	return {
+		endCol: XLSX.utils.encode_col(Math.max(decoded.e.c, 16)),
+		lastRow: decoded.e.r + 1,
+	};
+}
+
 /**
  * Port da parte de leitura/detecção de cabeçalho do controller (importarPlanilha).
  * Detecta a linha de cabeçalho (padrão: linha 9 / índice 8) e converte em objetos.
@@ -57,8 +78,11 @@ function parsePlanilhaXlsx(buffer: Buffer): any[] {
 	const worksheet = workbook.Sheets[workbook.SheetNames[0]];
 	if (!worksheet) throw new Error('Não foi possível ler a planilha');
 
+	const { endCol, lastRow } = faixaUsadaPlanilha(worksheet);
+	const linhasCabecalho = Math.min(Math.max(lastRow, 9), 30);
+
 	const linhasTeste = XLSX.utils.sheet_to_json(worksheet, {
-		range: 'A1:Q20',
+		range: `A1:${endCol}${linhasCabecalho}`,
 		header: 1,
 		defval: null,
 	}) as any[][];
@@ -97,7 +121,7 @@ function parsePlanilhaXlsx(buffer: Buffer): any[] {
 	const nomesColunas = linhaCabecalhoArray.map((c) => String(c || '').trim());
 
 	let dadosArray = XLSX.utils.sheet_to_json(worksheet, {
-		range: `A${linhaInicio}:Z1048576`,
+		range: `A${linhaInicio}:${endCol}${Math.max(lastRow, linhaInicio)}`,
 		header: 1,
 		defval: null,
 		raw: false,
@@ -450,6 +474,7 @@ async function processarImportacaoPlanilha(
 			if (processoTrim) {
 				const existente = await prisma.agendamento.findFirst({
 					where: { processo: processoTrim, dataHora: dataHoraObj },
+					select: { id: true },
 				});
 				if (existente) {
 					duplicados++;
@@ -478,12 +503,18 @@ async function processarImportacaoPlanilha(
 					},
 				});
 				importados++;
-				if (tecnicoId) idsParaAgendar.push(criado.id);
+				const ehArthur =
+					String(tipoAgendamento || '').trim() === PRE_PROJETO_TIPO_AGENDAMENTO_TEXTO;
+				if (tecnicoId && !ehArthur) idsParaAgendar.push(criado.id);
 			} catch (dbError) {
+				const desatualizado = erroBancoDesatualizado(dbError);
+				if (desatualizado) throw new Error(desatualizado);
 				console.error(`Linha ${index + 1}: Erro ao criar no banco de dados:`, (dbError as Error).message);
 				erros++;
 			}
 		} catch (error) {
+			const desatualizado = erroBancoDesatualizado(error);
+			if (desatualizado) throw new Error(desatualizado);
 			console.error(`Erro ao importar linha ${index + 1}:`, (error as Error).message);
 			erros++;
 		}

@@ -55,7 +55,7 @@ export async function sincronizarPresenca(
     }
 
     if (resultado.statusAlterado) {
-      revalidateTag('agendamentos');
+      revalidateTag('agendamentos', 'max');
     }
 
     const data: IResultadoPresenca = {

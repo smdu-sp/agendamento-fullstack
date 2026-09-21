@@ -18,3 +18,10 @@ export function getApiUrl(): string {
 
 // Para compatibilidade com código existente
 export const API_URL = getApiUrl();
+
+/** Auth do munícipe vive neste app (não no backend Nest). */
+export function getMunicipeAuthApiUrl(caminho: string): string {
+  const basePath = (process.env.NEXT_PUBLIC_BASE_PATH || '/agendamento').replace(/\/$/, '');
+  const path = caminho.startsWith('/') ? caminho : `/${caminho}`;
+  return `${basePath}/api/municipes/auth${path}`;
+}

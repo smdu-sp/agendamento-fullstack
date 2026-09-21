@@ -22,6 +22,7 @@ import {
   formatarDuracaoSegundos,
   reuniaoJaTerminou,
 } from '@/lib/date-time';
+import { montarAssuntoReuniaoPorTipo } from '@/lib/reuniao-teams-titulos';
 
 interface ReuniaoTeamsDialogProps {
   agendamento: IAgendamento;
@@ -131,11 +132,20 @@ export function ReuniaoTeamsDialog({
             Reunião Teams
           </DialogTitle>
           <DialogDescription>
-            Confira os dados do agendamento. O ponto focal pode cancelar a reunião informando o motivo.
+            Confira os dados do agendamento. Se a criação automática falhar, o ponto
+            focal pode tentar novamente por este diálogo (alternativa manual).
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3 text-sm">
+          <p>
+            <span className="font-semibold">Título da reunião:</span>{' '}
+            {montarAssuntoReuniaoPorTipo({
+              tipoAgendamentoTexto: agendamento.tipoAgendamento?.texto,
+              siglaCoordenadoria: agendamento.coordenadoria?.sigla,
+              processo: agendamento.processo,
+            })}
+          </p>
           <p>
             <span className="font-semibold">Munícipe:</span> {agendamento.municipe || '—'}
           </p>
@@ -240,7 +250,7 @@ export function ReuniaoTeamsDialog({
           {podeGerenciar && solicitado && agendamento.tecnico && (
             <Button onClick={handleAgendar} disabled={agendando}>
               {agendando && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {temReuniao ? 'Tentar agendar novamente' : 'Agendar reunião'}
+              {temReuniao ? 'Tentar agendar novamente' : agendamento.teamsUltimoErro ? 'Tentar agendar novamente' : 'Agendar reunião'}
             </Button>
           )}
           {temReuniao && terminou && !cancelado && (

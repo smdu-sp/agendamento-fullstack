@@ -5,6 +5,8 @@ import 'server-only';
  * Teams e ler relatórios de presença.
  *
  * Variáveis: AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET
+ * Permissões de aplicativo: Calendars.ReadWrite, OnlineMeetings.ReadWrite.All,
+ * OnlineMeetingArtifact.Read.All, Mail.Send
  */
 
 const GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
@@ -156,6 +158,7 @@ export async function graphCriarEventoTeams(params: {
   fim: Date;
   participantes: GraphAttendee[];
 }): Promise<GraphEventoCriado> {
+  const vistos = new Set<string>();
   const attendees = params.participantes
     .map((p) => ({
       emailAddress: {
@@ -164,7 +167,12 @@ export async function graphCriarEventoTeams(params: {
       },
       type: 'required' as const,
     }))
-    .filter((a) => a.emailAddress.address);
+    .filter((a) => {
+      const key = a.emailAddress.address.toLowerCase();
+      if (!key || vistos.has(key)) return false;
+      vistos.add(key);
+      return true;
+    });
 
   const payload = {
     subject: params.assunto,
@@ -220,6 +228,43 @@ export async function graphResolverMeetingId(
     console.error('[Graph] Falha ao resolver meetingId:', e instanceof Error ? e.message : e);
     return null;
   }
+}
+
+export async function graphEnviarEmail(params: {
+  fromEmail: string;
+  para: GraphAttendee[];
+  assunto: string;
+  corpoHtml: string;
+}): Promise<void> {
+  const vistos = new Set<string>();
+  const toRecipients = params.para
+    .map((p) => {
+      const address = p.email.trim();
+      const key = address.toLowerCase();
+      if (!address || !address.includes('@') || vistos.has(key)) return null;
+      vistos.add(key);
+      return {
+        emailAddress: {
+          address,
+          name: (p.nome || address).trim(),
+        },
+      };
+    })
+    .filter((r): r is { emailAddress: { address: string; name: string } } => r !== null);
+
+  if (!toRecipients.length) return;
+
+  await graphFetch(`${usersPath(params.fromEmail)}/sendMail`, {
+    method: 'POST',
+    body: JSON.stringify({
+      message: {
+        subject: params.assunto,
+        body: { contentType: 'HTML', content: params.corpoHtml },
+        toRecipients,
+      },
+      saveToSentItems: true,
+    }),
+  });
 }
 
 export async function graphCancelarEvento(

@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/form';
 import * as configuracoes from '@/services/configuracoes';
 import type { IConfiguracaoReunioes } from '@/types/configuracao';
+import { EMAIL_MARCADOR_REUNIOES_PADRAO } from '@/lib/reuniao-teams-titulos';
 
 const schema = z.object({
   emailMarcador: z.string().email('Informe um e-mail válido'),
@@ -82,15 +83,17 @@ export function FormConfiguracoes({
               <FormControl>
                 <Input
                   type="email"
-                  placeholder="ex: reunioes.smul@prefeitura.sp.gov.br"
+                  placeholder={EMAIL_MARCADOR_REUNIOES_PADRAO}
                   disabled={!podeEditar}
                   {...field}
                 />
               </FormControl>
               <FormMessage />
               <p className="text-xs text-muted-foreground">
-                Caixa do Microsoft 365 usada pela API Graph para criar os convites Teams.
-                Participantes: técnico, munícipe e e-mail da coordenadoria.
+                Caixa do Microsoft 365 usada pela API Graph para criar os convites
+                Teams dos agendamentos técnicos e da Sala Arthur Saboya. Padrão:{' '}
+                {EMAIL_MARCADOR_REUNIOES_PADRAO}. Participantes sempre incluem o
+                e-mail da coordenadoria.
               </p>
               {inicial.atualizadoEm && (
                 <p className="text-xs text-muted-foreground">

@@ -87,7 +87,7 @@ export async function criar(data: ICreateAgendamento): Promise<IRespostaAgendame
 			include: INCLUDE_AGENDAMENTO,
 		});
 
-		revalidateTag('agendamentos');
+		revalidateTag('agendamentos', 'max');
 		return { ok: true, error: null, data: agendamento as unknown as IAgendamento, status: 201 };
 	} catch (error) {
 		if (error instanceof AuthzError) {

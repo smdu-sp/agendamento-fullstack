@@ -24,7 +24,7 @@ export async function criar(data: ICreateDivisao): Promise<IRespostaDivisao> {
 			select: SELECT_DIVISAO,
 		});
 
-		revalidateTag('divisoes');
+		revalidateTag('divisoes', 'max');
 		return { ok: true, error: null, data: divisao as IDivisao, status: 201 };
 	} catch (error) {
 		if (error instanceof AuthzError) {

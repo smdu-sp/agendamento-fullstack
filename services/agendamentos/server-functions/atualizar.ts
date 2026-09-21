@@ -40,6 +40,7 @@ export async function atualizar(id: string, data: IUpdateAgendamento): Promise<I
 				processo: true,
 				tecnicoId: true,
 				teamsEventId: true,
+				origemPortalProcesso: true,
 				tipoAgendamento: { select: { texto: true } },
 			},
 		});
@@ -141,13 +142,22 @@ export async function atualizar(id: string, data: IUpdateAgendamento): Promise<I
 			include: INCLUDE_AGENDAMENTO,
 		});
 
+		const tipoPreArthur =
+			(agendamentoAtual.tipoAgendamento?.texto ?? '').trim() === PRE_PROJETO_TIPO_AGENDAMENTO_TEXTO;
 		const tecnicoFoiAtribuido =
 			!!tecnicoId &&
 			!agendamentoAtual.tecnicoId &&
 			!agendamentoAtual.teamsEventId &&
 			agendamentoAtualizado.status === StatusAgendamento.SOLICITADO;
-		if (tecnicoFoiAtribuido) {
+		// Arthur Saboya: o ponto focal dispara a reunião pelo botão do chamado.
+		if (tecnicoFoiAtribuido && !tipoPreArthur) {
 			await criarReuniaoTeamsSePossivel(id);
+			if (agendamentoAtual.origemPortalProcesso && agendamentoAtualizado.status === StatusAgendamento.SOLICITADO) {
+				await prisma.agendamento.update({
+					where: { id },
+					data: { status: StatusAgendamento.AGENDADO },
+				});
+			}
 		}
 
 		const agendamentoResposta = tecnicoFoiAtribuido
@@ -158,8 +168,6 @@ export async function atualizar(id: string, data: IUpdateAgendamento): Promise<I
 			: agendamentoAtualizado;
 
 		// Pré-projeto Arthur Saboya: SOLICITADO -> AGENDADO marca a solicitação e avisa o munícipe.
-		const tipoPreArthur =
-			(agendamentoAtual.tipoAgendamento?.texto ?? '').trim() === PRE_PROJETO_TIPO_AGENDAMENTO_TEXTO;
 		const passouParaAgendado =
 			data.status === StatusAgendamento.AGENDADO &&
 			agendamentoAtual.status === StatusAgendamento.SOLICITADO;
@@ -192,7 +200,7 @@ export async function atualizar(id: string, data: IUpdateAgendamento): Promise<I
 			}
 		}
 
-		revalidateTag('agendamentos');
+		revalidateTag('agendamentos', 'max');
 		return {
 			ok: true,
 			error: null,

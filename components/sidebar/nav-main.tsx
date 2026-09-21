@@ -40,6 +40,7 @@ import {
 import { validaUsuario } from "@/services/usuarios";
 import { IUsuario } from "@/types/usuario";
 import { usuarioPodeAcessarPedidosPreProjetosArthurSaboya } from "@/lib/pedidos-pre-projetos-arthur-saboya-acesso";
+import { usuarioPodeAcessarConferenciaCap } from "@/lib/conferencia-cap-acesso";
 import { ForwardRefExoticComponent, RefAttributes } from "react";
 import Link from "../link";
 
@@ -203,6 +204,14 @@ export async function NavMain() {
                   <Link href="/pedidos-pre-projetos-arthur-saboya">
                     <ClipboardList />
                     <span>Pedidos Arthur Saboya</span>
+                  </Link>
+                </SidebarMenuItem>
+              )}
+              {usuario && usuarioPodeAcessarConferenciaCap(usuario) && (
+                <SidebarMenuItem className="z-50">
+                  <Link href="/conferencia-cap">
+                    <FileText />
+                    <span>Conferência CAP</span>
                   </Link>
                 </SidebarMenuItem>
               )}

@@ -20,7 +20,7 @@ export async function criar(data: ICreateMotivo): Promise<IRespostaMotivo> {
 
 		const motivo = await prisma.motivo.create({ data: { ...data, status: data.status ?? true } });
 
-		revalidateTag('motivos');
+		revalidateTag('motivos', 'max');
 		return { ok: true, error: null, data: motivo as IMotivo, status: 201 };
 	} catch (error) {
 		if (error instanceof AuthzError) {

@@ -82,8 +82,8 @@ export async function atualizar(id: string, data: IUpdateUsuario): Promise<IResp
 			select: SELECT_USUARIO_SEM_SENHA,
 		});
 
-		revalidateTag('users');
-		revalidateTag('user-by-id');
+		revalidateTag('users', 'max');
+		revalidateTag('user-by-id', 'max');
 		revalidatePath('/');
 		return { ok: true, error: null, data: atualizado as unknown as IUsuario, status: 200 };
 	} catch (error) {

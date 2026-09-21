@@ -82,7 +82,7 @@ export async function criar(data: ICreateUsuario): Promise<IRespostaUsuario> {
 			select: SELECT_USUARIO_SEM_SENHA,
 		});
 
-		revalidateTag('users');
+		revalidateTag('users', 'max');
 		return { ok: true, error: null, data: usuario as unknown as IUsuario, status: 201 };
 	} catch (error) {
 		if (error instanceof AuthzError) {

@@ -53,6 +53,17 @@ model Agendamento {
   tecnicoId                 String?
   tecnicoRF                 String?
   email                     String?
+  telefone                  String?           @db.VarChar(32)
+  relacaoInteressado        RelacaoInteressado?
+  origemPortalProcesso      Boolean           @default(false)
+  conferenciaCapStatus      ConferenciaCapStatus?
+  unidadeDespachoBi         String?           @db.VarChar(255)
+  encontradoNoBi            Boolean?
+  biComuniqueSe             Boolean           @default(false)
+  biIndeferido              Boolean           @default(false)
+  confirmadoProcessoAusente Boolean           @default(false)
+  observacaoCap             String?           @db.Text
+  municipeContaId           String?
   status                    StatusAgendamento @default(SOLICITADO)
 
   teamsEventId           String?   @db.Text
@@ -75,9 +86,13 @@ model Agendamento {
   tecnico              Usuario?         @relation(fields: [tecnicoId], references: [id], onDelete: NoAction)
   canceladoPor         Usuario?         @relation("AgendamentoCanceladoPor", fields: [canceladoPorId], references: [id], onDelete: SetNull)
   presencasReuniao     PresencaReuniao[]
+  municipeConta        MunicipeConta?   @relation(fields: [municipeContaId], references: [id], onDelete: SetNull)
 
   solicitacaoPreProjetoArthurSaboya SolicitacaoPreProjetoArthurSaboya?
 
+  @@index([conferenciaCapStatus])
+  @@index([municipeContaId])
+  @@index([origemPortalProcesso])
   @@map("agendamentos")
 }
 
@@ -232,6 +247,20 @@ enum StatusAgendamento {
   NAO_REALIZADO
 }
 
+enum RelacaoInteressado {
+  AUTOR_PROJETO
+  AUTORIZADO
+  PROPRIETARIO
+  RESPONSAVEL_TECNICO
+  TERCEIROS
+}
+
+enum ConferenciaCapStatus {
+  AGUARDANDO
+  ENCAMINHADO
+  NAO_ENCONTRADO
+}
+
 enum StatusSolicitacaoPreProjeto {
   SOLICITADO
   RESPONDIDO //SOLUCIONADO
@@ -300,6 +329,7 @@ model MunicipeConta {
 
   solicitacoesPreProjetoArthurSaboya SolicitacaoPreProjetoArthurSaboya[]
   mensagensPreProjetoArthurSaboya    SolicitacaoPreProjetoArthurSaboyaMensagem[]
+  agendamentos                       Agendamento[]
 
   @@map("municipes_contas")
 }

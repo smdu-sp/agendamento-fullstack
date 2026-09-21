@@ -38,7 +38,7 @@ export async function agendarReuniaoTeams(id: string): Promise<IRespostaAgendame
       include: INCLUDE_AGENDAMENTO,
     });
 
-    revalidateTag('agendamentos');
+    revalidateTag('agendamentos', 'max');
 
     if (!resultado.ok) {
       return {

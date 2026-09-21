@@ -34,7 +34,7 @@ export async function importarPlanilhaOutlook(formData: FormData): Promise<IResp
 		const buffer = Buffer.from(await arquivo.arrayBuffer());
 		const resultado = await importarPlanilhaOutlookDeBuffer(buffer, usuario.id);
 
-		revalidateTag('agendamentos');
+		revalidateTag('agendamentos', 'max');
 		return { ok: true, error: null, data: resultado, status: 200 };
 	} catch (error) {
 		if (error instanceof AuthzError) {

@@ -11,6 +11,7 @@ import {
 	divisaoPreProjetosEnv,
 	whereExcluirPreProjetoArthurNaListaAgendamentos,
 } from '@/lib/agendamentos-core';
+import { whereExcluirConferenciaCapPendente } from '@/lib/portal-processos-core';
 import {
 	IDashboard,
 	IDashboardPorMes,
@@ -196,12 +197,14 @@ async function calcularDashboard(
 		AND: [
 			{ dataHora: { gte: dataInicio, lte: dataFim }, ...filtroPorTecnicoDivisao },
 			whereExcluirPreProjetoArthurNaListaAgendamentos(),
+			whereExcluirConferenciaCapPendente(),
 		],
 	};
 	const whereAnoHistorico = {
 		AND: [
 			{ dataHora: { gte: new Date(anoMin, 0, 1), lte: new Date() }, ...filtroPorTecnicoDivisao },
 			whereExcluirPreProjetoArthurNaListaAgendamentos(),
+			whereExcluirConferenciaCapPendente(),
 		],
 	};
 

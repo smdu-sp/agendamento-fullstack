@@ -49,7 +49,7 @@ export async function cancelarReuniaoTeams(
       where: { id },
       include: INCLUDE_AGENDAMENTO,
     });
-    revalidateTag('agendamentos');
+    revalidateTag('agendamentos', 'max');
     return {
       ok: true,
       error: null,

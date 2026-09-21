@@ -24,7 +24,7 @@ export async function criar(data: ICreateCoordenadoria): Promise<IRespostaCoorde
 			data: { ...data, status: data.status ?? true },
 		});
 
-		revalidateTag('coordenadorias');
+		revalidateTag('coordenadorias', 'max');
 		return { ok: true, error: null, data: coordenadoria as ICoordenadoria, status: 201 };
 	} catch (error) {
 		if (error instanceof AuthzError) {

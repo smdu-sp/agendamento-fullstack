@@ -8,6 +8,7 @@ import {
 	inferirDivisaoIdPorLoginNoSgu,
 	vincularDivisaoTecnicoPorLoginSeDisponivel,
 } from '@/lib/usuarios-core';
+import { TIPO_AGENDAMENTO_ARTHUR_SABOYA } from '@/lib/reuniao-teams-titulos';
 
 /**
  * Núcleo compartilhado do domínio de agendamentos — porta dos helpers privados
@@ -16,7 +17,7 @@ import {
  */
 
 /** Texto único em `tipos_agendamento` para o fluxo de pré-projetos (Arthur Saboya). */
-export const PRE_PROJETO_TIPO_AGENDAMENTO_TEXTO = 'Pré-projetos (Arthur Saboya)';
+export const PRE_PROJETO_TIPO_AGENDAMENTO_TEXTO = TIPO_AGENDAMENTO_ARTHUR_SABOYA;
 /** Duração padrão (min) de cada atendimento da Sala Arthur Saboya. */
 export const PRE_PROJETO_DURACAO_ATENDIMENTO_MINUTOS = 30;
 

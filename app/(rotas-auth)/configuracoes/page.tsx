@@ -30,8 +30,9 @@ export default async function ConfiguracoesPage() {
           <CardTitle>Reuniões Microsoft Teams</CardTitle>
           <CardDescription>
             O sistema cria as reuniões automaticamente pela Graph API, usando este e-mail como
-            organizador. As credenciais da aplicação Azure ficam no ambiente
-            (AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET).
+            organizador (padrão: smuL_agendamento@prefeitura.sp.gov.br) tanto nos agendamentos
+            técnicos quanto na Sala Arthur Saboya. As credenciais da aplicação Azure ficam no
+            ambiente (AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET).
           </CardDescription>
         </CardHeader>
         <CardContent>

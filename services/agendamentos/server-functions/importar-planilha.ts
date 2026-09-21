@@ -37,7 +37,7 @@ export async function importarPlanilha(formData: FormData): Promise<IRespostaAge
 		const buffer = Buffer.from(await arquivo.arrayBuffer());
 		const resultado = await importarPlanilhaDeBuffer(buffer, coordenadoriaId, usuario.id);
 
-		revalidateTag('agendamentos');
+		revalidateTag('agendamentos', 'max');
 		return { ok: true, error: null, data: resultado, status: 200 };
 	} catch (error) {
 		if (error instanceof AuthzError) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ArthurSaboyaFooter } from "@/components/arthur-saboya/footer";
 import { ArthurSaboyaHeader } from "@/components/arthur-saboya/header";
@@ -9,15 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getMunicipeAuthApiUrl } from "@/lib/api-url";
 import { toast } from "sonner";
-
-const getApiBase = () =>
-  (process.env.NEXT_PUBLIC_AGENDAMENTOS_API_URL || process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 
 function RedefinirSenhaForm() {
   const searchParams = useSearchParams();
   const tokenInicial = searchParams.get("token") || "";
-  const apiBase = useMemo(getApiBase, []);
 
   const [token, setToken] = useState(tokenInicial);
   const [novaSenha, setNovaSenha] = useState("");
@@ -34,14 +31,10 @@ function RedefinirSenhaForm() {
       toast.error("As senhas não coincidem.");
       return;
     }
-    if (!apiBase) {
-      toast.error("Configure NEXT_PUBLIC_AGENDAMENTOS_API_URL no frontend.");
-      return;
-    }
 
     setCarregando(true);
     try {
-      const res = await fetch(`${apiBase}/municipes/auth/redefinir-senha`, {
+      const res = await fetch(getMunicipeAuthApiUrl("/redefinir-senha"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, novaSenha }),

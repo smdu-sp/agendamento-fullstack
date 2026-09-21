@@ -35,7 +35,7 @@ export async function atualizar(
 			where: { id },
 		});
 
-		revalidateTag('coordenadorias');
+		revalidateTag('coordenadorias', 'max');
 		return { ok: true, error: null, data: coordenadoriaAtualizada as ICoordenadoria, status: 200 };
 	} catch (error) {
 		if (error instanceof AuthzError) {

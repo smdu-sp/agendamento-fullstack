@@ -20,7 +20,7 @@ export async function criar(data: ICreateTipoAgendamento): Promise<IRespostaTipo
 
 		const item = await prisma.tipoAgendamento.create({ data: { ...data, status: data.status ?? true } });
 
-		revalidateTag('tipos-agendamento');
+		revalidateTag('tipos-agendamento', 'max');
 		return { ok: true, error: null, data: item as ITipoAgendamento, status: 201 };
 	} catch (error) {
 		if (error instanceof AuthzError) {

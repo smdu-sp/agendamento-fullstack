@@ -39,8 +39,6 @@ export function DevClock() {
 
   const [browser, setBrowser] = useState<TimeInfo | null>(null);
   const [nextjs, setNextjs] = useState<TimeInfo | null>(null);
-  const [backend, setBackend] = useState<TimeInfo | null>(null);
-  const [backendError, setBackendError] = useState(false);
   const [visible, setVisible] = useState(true);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -63,30 +61,12 @@ export function DevClock() {
       } catch {}
     }
 
-    async function fetchBackend() {
-      const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "";
-      if (!base) return;
-      try {
-        const r = await fetch(`${base}/debug/time`, { cache: "no-store" });
-        if (r.ok) {
-          setBackend(await r.json());
-          setBackendError(false);
-        } else {
-          setBackendError(true);
-        }
-      } catch {
-        setBackendError(true);
-      }
-    }
-
     tick();
     fetchNextjs();
-    fetchBackend();
 
     intervalRef.current = setInterval(() => {
       tick();
       fetchNextjs();
-      fetchBackend();
     }, 2000);
 
     return () => {
@@ -110,7 +90,6 @@ export function DevClock() {
       <div className="flex flex-col gap-2 p-3">
         <Row label="🌐 Browser" info={browser} />
         <Row label="🖥️ Next.js (SSR)" info={nextjs} />
-        <Row label="⚙️ Backend" info={backend} error={backendError} />
       </div>
     </div>
   );

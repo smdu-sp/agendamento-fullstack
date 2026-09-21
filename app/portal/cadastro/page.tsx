@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArthurSaboyaFooter } from "@/components/arthur-saboya/footer";
@@ -12,12 +12,13 @@ import { Input } from "@/components/ui/input";
 import { InputSenhaComToggle } from "@/components/ui/input-senha-com-toggle";
 import { Label } from "@/components/ui/label";
 import { salvarSessaoMunicipe } from "@/lib/municipe-sessao";
+import { getMunicipeAuthApiUrl } from "@/lib/api-url";
+import { emailTemEstruturaValida } from "@/lib/utils";
 import { toast } from "sonner";
 
-type TokenResponse = { access_token: string };
+const MENSAGEM_EMAIL_INVALIDO = "Informe um e-mail válido no formato nome@dominio.com.";
 
-const getApiBase = () =>
-  (process.env.NEXT_PUBLIC_AGENDAMENTOS_API_URL || process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+type TokenResponse = { access_token: string };
 
 function destinoAposLoginSeguro(raw: string | null): string | null {
   if (!raw) return null;
@@ -35,17 +36,16 @@ function destinoAposLoginSeguro(raw: string | null): string | null {
 function FormularioCadastro() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const apiBase = useMemo(getApiBase, []);
   const [carregando, setCarregando] = useState(false);
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
+  const [erroEmail, setErroEmail] = useState("");
 
   const proxima = destinoAposLoginSeguro(searchParams.get("proxima"));
 
   async function requisicao<T>(rota: string, body: unknown): Promise<T> {
-    if (!apiBase) throw new Error("Configure NEXT_PUBLIC_AGENDAMENTOS_API_URL no frontend.");
-    const res = await fetch(`${apiBase}${rota}`, {
+    const res = await fetch(getMunicipeAuthApiUrl(rota), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -59,13 +59,27 @@ function FormularioCadastro() {
     return data as T;
   }
 
+  function validarEmail(valor: string): boolean {
+    if (emailTemEstruturaValida(valor)) {
+      setErroEmail("");
+      return true;
+    }
+    setErroEmail(MENSAGEM_EMAIL_INVALIDO);
+    return false;
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const emailNormalizado = email.trim();
+    if (!validarEmail(emailNormalizado)) {
+      toast.error(MENSAGEM_EMAIL_INVALIDO);
+      return;
+    }
     setCarregando(true);
     try {
-      const data = await requisicao<TokenResponse>("/municipes/auth/cadastro", {
+      const data = await requisicao<TokenResponse>("/cadastro", {
         nome: nome.trim(),
-        email: email.trim(),
+        email: emailNormalizado.toLowerCase(),
         senha,
       });
       salvarSessaoMunicipe(data.access_token);
@@ -101,10 +115,23 @@ function FormularioCadastro() {
               id="cad-email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (erroEmail) setErroEmail("");
+              }}
+              onBlur={() => {
+                if (email.trim()) validarEmail(email);
+              }}
               autoComplete="email"
+              aria-invalid={Boolean(erroEmail)}
+              aria-describedby={erroEmail ? "cad-email-erro" : undefined}
               required
             />
+            {erroEmail ? (
+              <p id="cad-email-erro" className="text-sm text-destructive" role="alert">
+                {erroEmail}
+              </p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="cad-senha">Senha</Label>

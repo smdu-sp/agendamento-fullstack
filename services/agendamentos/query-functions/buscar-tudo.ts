@@ -16,6 +16,7 @@ import {
 	mascararCPF,
 	whereExcluirPreProjetoArthurNaListaAgendamentos,
 } from '@/lib/agendamentos-core';
+import { whereExcluirConferenciaCapPendente } from '@/lib/portal-processos-core';
 import { IAgendamento, IPaginadoAgendamento, IRespostaAgendamento } from '@/types/agendamento';
 
 const REGEX_PROCESSO_DIGITAL_SQL = '^[0-9]{4}[.][0-9]{4}/[0-9]{7}-[0-9]$';
@@ -89,6 +90,9 @@ function montarWhereSqlBuscarTudo(
 			Prisma.sql`(tipoAgendamentoId IS NULL OR tipoAgendamentoId <> ${preProjetoTipoAgendamentoIdExcluir})`,
 		);
 	}
+	parts.push(
+		Prisma.sql`(conferenciaCapStatus IS NULL OR conferenciaCapStatus <> ${'AGUARDANDO'})`,
+	);
 
 	return parts.length ? Prisma.join(parts, ' AND ') : Prisma.sql`TRUE`;
 }
@@ -236,7 +240,11 @@ async function executarBuscarTudo(
 	};
 
 	const searchParams: Prisma.AgendamentoWhereInput = {
-		AND: [filtrosPrincipais, whereExcluirPreProjetoArthurNaListaAgendamentos()],
+		AND: [
+			filtrosPrincipais,
+			whereExcluirPreProjetoArthurNaListaAgendamentos(),
+			whereExcluirConferenciaCapPendente(),
+		],
 	};
 
 	const tipoFiltro = tipoProcesso === 'DIGITAL' || tipoProcesso === 'FISICO' ? tipoProcesso : undefined;

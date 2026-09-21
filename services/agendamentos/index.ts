@@ -30,4 +30,11 @@ export {
   agendarReuniaoTeams,
   cancelarReuniaoTeams,
   sincronizarPresenca,
+  validarProcessoPortal,
+  criarSolicitacaoPortalProcesso,
+  listarAgendamentosPortalProcesso,
+  cancelarAgendamentoPortalProcesso,
+  listarConferenciaCap,
+  encaminharConferenciaCap,
+  recusarConferenciaCap,
 } from "./server-functions";

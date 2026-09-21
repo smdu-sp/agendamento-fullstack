@@ -22,7 +22,7 @@ export async function atualizar(id: string, data: IUpdateMotivo): Promise<IRespo
 
 		const motivoAtualizado = await prisma.motivo.update({ data, where: { id } });
 
-		revalidateTag('motivos');
+		revalidateTag('motivos', 'max');
 		return { ok: true, error: null, data: motivoAtualizado as IMotivo, status: 200 };
 	} catch (error) {
 		if (error instanceof AuthzError) {

@@ -5,6 +5,18 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/** Exige local@domínio com TLD de pelo menos 2 letras (ex.: nome@dominio.com). */
+const EMAIL_ESTRUTURA_REGEX =
+  /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,}$/;
+
+export function emailTemEstruturaValida(email: string): boolean {
+  const valor = email.trim();
+  if (!valor || valor.length > 254 || valor.includes("..")) return false;
+  const [local] = valor.split("@");
+  if (!local || local.startsWith(".") || local.endsWith(".")) return false;
+  return EMAIL_ESTRUTURA_REGEX.test(valor);
+}
+
 export function validaCPF_CNPJ(cpf_cnpj: string) {
   const cpfs_invalidos = ['00000000000', '11111111111', '22222222222', '33333333333', '44444444444', '55555555555', '66666666666', '77777777777', '88888888888', '99999999999'];
   const cnpjs_invalidos = ['00000000000000', '11111111111111', '22222222222222', '33333333333333', '44444444444444', '55555555555555', '66666666666666', '77777777777777', '88888888888888', '99999999999999'];

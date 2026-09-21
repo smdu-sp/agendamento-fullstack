@@ -25,6 +25,7 @@ import {
 import * as agendamento from "@/services/agendamentos"
 import type { ISolicitacaoPreProjetoArthurSaboya } from "@/types/solicitacao-pre-projeto-arthur-saboya"
 import { formatarDataHoraSaoPaulo } from "@/lib/date-time"
+import { ListaAgendamentosPortalProcesso } from "./_components/lista-agendamentos-portal-processo"
 
 const BASE = "/portal"
 const CONSULTA_BASE = "/consulta"
@@ -103,7 +104,8 @@ export default function ConsultaPage() {
           <div className="min-w-0">
             <h1 className="text-2xl font-bold text-white sm:text-3xl">Consultar atendimentos</h1>
             <p className="mt-1 max-w-2xl text-sm leading-snug text-white/90 sm:text-base">
-              Consulte seus atendimentos de dúvidas pré-projetos (Sala Arthur Saboya)
+              Consulte seus atendimentos de dúvidas pré-projetos (Sala Arthur Saboya) e os
+              agendamentos de processos em trâmite
             </p>
           </div>
         </div>
@@ -132,6 +134,7 @@ export default function ConsultaPage() {
                 </Card>
               ) : null}
               {autenticado ? (
+                <>
                 <Card>
                   <CardHeader className="space-y-2">
                     <CardTitle className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
@@ -257,6 +260,8 @@ export default function ConsultaPage() {
                     ) : null}
                   </CardContent>
                 </Card>
+                <ListaAgendamentosPortalProcesso />
+                </>
               ) : null}
             </div>
           </div>
