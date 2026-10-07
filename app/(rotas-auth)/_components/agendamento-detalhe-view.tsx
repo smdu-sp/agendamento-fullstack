@@ -45,6 +45,7 @@ export function AgendamentoDetalheView({ agendamento }: { agendamento: IAgendame
           <p><span className="font-semibold">CPF:</span> {agendamento.cpf || "—"}</p>
           <p><span className="font-semibold">Telefone:</span> {agendamento.telefone || "—"}</p>
           <p><span className="font-semibold">Processo:</span> {agendamento.processo || "—"}</p>
+          {agendamento.modalidade ? <p><span className="font-semibold">Modalidade:</span> {agendamento.modalidade === "ONLINE" ? "Online" : "Presencial"}</p> : null}
           <p><span className="font-semibold">Data/Hora:</span> {formatarData(agendamento.dataHora)}</p>
           <p><span className="font-semibold">Fim:</span> {formatarData(agendamento.dataFim)}</p>
           <div className="flex items-center gap-2">
@@ -67,6 +68,25 @@ export function AgendamentoDetalheView({ agendamento }: { agendamento: IAgendame
         <CardContent className="space-y-3 text-sm">
           <p><span className="font-semibold">Coordenadoria:</span> {agendamento.coordenadoria?.sigla || "—"}</p>
           <p><span className="font-semibold">Técnico:</span> {agendamento.tecnico?.nome || "—"}</p>
+          {agendamento.teamsSyncPendente ? <p className="font-medium text-amber-700">Atualização da reunião Teams pendente. {agendamento.teamsUltimoErro || "Nova tentativa programada."}</p> : null}
+          {agendamento.encaminhadoReservaEm && !agendamento.tecnico ? <p className="font-medium text-amber-700">Aguardando técnico reserva. {agendamento.motivoEncaminhamentoReserva}</p> : null}
+          {agendamento.tipoRecurso ? (
+            <>
+              <p><span className="font-semibold">Recurso:</span> {agendamento.tipoRecurso === "DESPACHO" ? "Despacho indeferido" : "Comunique-se"}</p>
+              <p><span className="font-semibold">Protocolo BI:</span> {agendamento.protocoloOrigem || "—"}</p>
+              <p><span className="font-semibold">Sistema BI:</span> {agendamento.sistemaOrigem || "—"}</p>
+              <p><span className="font-semibold">Situação BI:</span> {agendamento.situacaoRecurso || "—"}</p>
+              <p><span className="font-semibold">Unidade original:</span> {agendamento.unidadeOrigem || "—"}</p>
+              <p><span className="font-semibold">Responsável original:</span> {agendamento.responsavelOriginal || "—"} {agendamento.responsavelOriginalRF ? `(RF ${agendamento.responsavelOriginalRF})` : ""}</p>
+            </>
+          ) : null}
+          {agendamento.modalidade === "PRESENCIAL" ? (
+            <>
+              <p><span className="font-semibold">Local:</span> {agendamento.localAtendimento || "A definir"}</p>
+              {agendamento.sala ? <p><span className="font-semibold">Sala:</span> {agendamento.sala}</p> : null}
+              {agendamento.orientacaoAcesso ? <p><span className="font-semibold">Orientações:</span> {agendamento.orientacaoAcesso}</p> : null}
+            </>
+          ) : null}
           <p><span className="font-semibold">Divisão:</span> {agendamento.tecnico?.divisao?.sigla || "—"}</p>
           <p><span className="font-semibold">E-mail:</span> {agendamento.email || "—"}</p>
           <p>
@@ -92,7 +112,7 @@ export function AgendamentoDetalheView({ agendamento }: { agendamento: IAgendame
         </CardContent>
       </Card>
 
-      <Card className="border-[#E5EAF2] lg:col-span-2">
+      {agendamento.modalidade !== "PRESENCIAL" ? <Card className="border-[#E5EAF2] lg:col-span-2">
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle>Reunião Teams</CardTitle>
           <Button size="sm" variant="outline" onClick={() => setDialogAberto(true)}>
@@ -133,14 +153,14 @@ export function AgendamentoDetalheView({ agendamento }: { agendamento: IAgendame
             <p>Sem dados de presença sincronizados.</p>
           )}
         </CardContent>
-      </Card>
+      </Card> : null}
 
       <Card className="border-[#E5EAF2] lg:col-span-2">
         <CardHeader>
           <CardTitle>Resumo</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-[#334155]">
-          {agendamento.resumo?.trim() || "Sem resumo informado."}
+          {agendamento.duvidaAtendimento?.trim() || agendamento.resumo?.trim() || "Sem resumo informado."}
         </CardContent>
       </Card>
 

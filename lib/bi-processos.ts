@@ -1,6 +1,8 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
 import sql from "mssql";
+import { elegivelComuniqueSe, elegivelDespacho } from "@/lib/bi-elegibilidade";
 
 type BiConfig = {
 	server: string;
@@ -74,9 +76,10 @@ async function getBiPool(): Promise<sql.ConnectionPool | null> {
 
 export type ResultadoBiProcesso = {
 	encontrado: boolean;
-	comuniqueSeAberto: boolean;
+	comuniqueSeAberto: boolean; // Nome legado: indica comunique-se elegível, independentemente da situação.
 	indeferido: boolean;
 	elegivelAutomatico: boolean;
+	ocorrencias: OcorrenciaBi[];
 	processo?: string | null;
 	protocolo?: string | null;
 	unidade?: string | null;
@@ -86,143 +89,119 @@ export type ResultadoBiProcesso = {
 	erroBi?: boolean;
 };
 
-type LinhaComuniqueSe = {
-	Processo: string | null;
-	Protocolo: string | null;
-	SituacaoComuniqueSe: string | null;
-	UnidadeComuniquese: string | null;
-	DtEmissao: Date | null;
+export type OcorrenciaBi = {
+	id: string;
+	tipo: "COMUNIQUE_SE" | "DESPACHO";
+	processo: string | null;
+	protocolo: string | null;
+	sistema: string | null;
+	situacao: string | null;
+	unidade: string | null;
+	responsavel: string | null;
+	responsavelRF: string | null;
+	elegivel: boolean;
 };
 
-type LinhaDespacho = {
-	Processo: string | null;
-	Protocolo: string | null;
-	SituacaoDespacho: string | null;
-	UnidadeDespacho: string | null;
-	DtEmissao: Date | null;
+type LinhaBi = {
+	processo: string | null;
+	protocolo: string | null;
+	sistema: string | null;
+	situacao: string | null;
+	unidade: string | null;
+	responsavel: string | null;
+	responsavelRF: string | null;
 };
-
-const SITUACOES_COMUNIQUE_FECHADO = new Set(["concluido", "concluído", "fechado"]);
 
 function normalizarNumero(valor: string): string {
 	return valor.trim().replace(/\s+/g, " ");
 }
 
-function situacaoComuniqueAberta(situacao: string | null | undefined): boolean {
-	const s = (situacao ?? "").trim().toLowerCase();
-	if (!s) return false;
-	return !SITUACOES_COMUNIQUE_FECHADO.has(s);
+function limpar(valor: string | null | undefined): string | null {
+	return valor == null ? null : String(valor).trim() || null;
 }
 
-function situacaoIndeferida(situacao: string | null | undefined): boolean {
-	const s = (situacao ?? "").trim().toLowerCase();
-	return s.startsWith("indefer");
+function montarOcorrencia(tipo: OcorrenciaBi["tipo"], row: LinhaBi): OcorrenciaBi {
+	const processo = limpar(row.processo);
+	const protocolo = limpar(row.protocolo);
+	const sistema = limpar(row.sistema);
+	const situacao = limpar(row.situacao);
+	const unidade = limpar(row.unidade);
+	const responsavel = limpar(row.responsavel);
+	const responsavelRF = limpar(row.responsavelRF);
+	// O contrato do BI ainda não informa uma chave primária para cada ocorrência.
+	const id = createHash("sha256")
+		.update(JSON.stringify([tipo, processo, protocolo, sistema, situacao, unidade, responsavel, responsavelRF]))
+		.digest("hex");
+	return {
+		id, tipo, processo, protocolo, sistema, situacao, unidade, responsavel, responsavelRF,
+		elegivel: tipo === "COMUNIQUE_SE" ? elegivelComuniqueSe(situacao) : elegivelDespacho(situacao),
+	};
 }
 
-async function buscarPorCampo<T>(
-	pool: sql.ConnectionPool,
-	tabela: "ComuniqueSes" | "Despachos",
-	campo: "Processo" | "Protocolo",
-	numero: string,
-): Promise<T[]> {
-	const request = pool.request();
-	request.input("numero", sql.VarChar(40), numero);
-	const result = await request.query<T>(`
-		SELECT Processo, Protocolo,
-			${tabela === "ComuniqueSes" ? "SituacaoComuniqueSe, UnidadeComuniquese, DtEmissao" : "SituacaoDespacho, UnidadeDespacho, DtEmissao"}
-		FROM dbo.${tabela}
-		WHERE LTRIM(RTRIM(CAST(${campo} AS VARCHAR(40)))) = @numero
-	`);
-	return result.recordset ?? [];
+async function buscarOcorrencias(pool: sql.ConnectionPool, numero: string): Promise<OcorrenciaBi[]> {
+	const [comuniques, despachos] = await Promise.all([
+		pool.request().input("numero", sql.VarChar(80), numero).query<LinhaBi>(`
+			SELECT processo, protocolo, sistema,
+				situacaoComuniquese AS situacao, unidadeComuniquese AS unidade,
+				responsavelComuniquese AS responsavel, responsavelComuniqueseID AS responsavelRF
+			FROM dbo.prata_comuniquese
+			WHERE LTRIM(RTRIM(CAST(processo AS VARCHAR(80)))) = @numero
+			   OR LTRIM(RTRIM(CAST(protocolo AS VARCHAR(80)))) = @numero
+		`),
+		pool.request().input("numero", sql.VarChar(80), numero).query<LinhaBi>(`
+			SELECT processo, protocolo, sistema,
+				situacaoDespacho AS situacao, unidadeDespacho AS unidade,
+				responsavelDespacho AS responsavel, responsavelDespachoID AS responsavelRF
+			FROM dbo.prata_despacho
+			WHERE LTRIM(RTRIM(CAST(processo AS VARCHAR(80)))) = @numero
+			   OR LTRIM(RTRIM(CAST(protocolo AS VARCHAR(80)))) = @numero
+		`),
+	]);
+	const todas = [
+		...(comuniques.recordset ?? []).map((row) => montarOcorrencia("COMUNIQUE_SE", row)),
+		...(despachos.recordset ?? []).map((row) => montarOcorrencia("DESPACHO", row)),
+	];
+	return [...new Map(todas.map((ocorrencia) => [ocorrencia.id, ocorrencia])).values()];
 }
 
 export async function consultarProcessoNoBi(numeroInformado: string): Promise<ResultadoBiProcesso> {
 	const numero = normalizarNumero(numeroInformado);
-	if (!numero) {
-		return {
-			encontrado: false,
-			comuniqueSeAberto: false,
-			indeferido: false,
-			elegivelAutomatico: false,
-		};
-	}
+	const vazio: ResultadoBiProcesso = {
+		encontrado: false, comuniqueSeAberto: false, indeferido: false,
+		elegivelAutomatico: false, ocorrencias: [],
+	};
+	if (!numero) return vazio;
 
 	let pool: sql.ConnectionPool | null = null;
 	try {
 		pool = await getBiPool();
 	} catch (err) {
 		console.warn("[BI] Falha ao conectar:", (err as Error).message);
-		return {
-			encontrado: false,
-			comuniqueSeAberto: false,
-			indeferido: false,
-			elegivelAutomatico: false,
-			erroBi: true,
-		};
+		return { ...vazio, erroBi: true };
 	}
-	if (!pool) {
-		return {
-			encontrado: false,
-			comuniqueSeAberto: false,
-			indeferido: false,
-			elegivelAutomatico: false,
-			erroBi: true,
-		};
-	}
+	if (!pool) return { ...vazio, erroBi: true };
 
 	try {
-		let campoLocalizado: "processo" | "protocolo" | undefined;
-		let comuniques = await buscarPorCampo<LinhaComuniqueSe>(pool, "ComuniqueSes", "Processo", numero);
-		let despachos = await buscarPorCampo<LinhaDespacho>(pool, "Despachos", "Processo", numero);
-		if (comuniques.length || despachos.length) {
-			campoLocalizado = "processo";
-		} else {
-			comuniques = await buscarPorCampo<LinhaComuniqueSe>(pool, "ComuniqueSes", "Protocolo", numero);
-			despachos = await buscarPorCampo<LinhaDespacho>(pool, "Despachos", "Protocolo", numero);
-			if (comuniques.length || despachos.length) campoLocalizado = "protocolo";
-		}
-
-		if (!campoLocalizado) {
-			return {
-				encontrado: false,
-				comuniqueSeAberto: false,
-				indeferido: false,
-				elegivelAutomatico: false,
-			};
-		}
-
-		const abertos = comuniques
-			.filter((c) => situacaoComuniqueAberta(c.SituacaoComuniqueSe))
-			.sort((a, b) => (b.DtEmissao?.getTime() ?? 0) - (a.DtEmissao?.getTime() ?? 0));
-		const indeferidos = despachos
-			.filter((d) => situacaoIndeferida(d.SituacaoDespacho))
-			.sort((a, b) => (b.DtEmissao?.getTime() ?? 0) - (a.DtEmissao?.getTime() ?? 0));
-
-		const comuniqueSeAberto = abertos.length > 0;
-		const indeferido = indeferidos.length > 0;
-		const ref = abertos[0] ?? indeferidos[0] ?? comuniques[0] ?? despachos[0];
-		const unidade = (abertos[0]?.UnidadeComuniquese ?? indeferidos[0]?.UnidadeDespacho ?? null)?.trim() || null;
+		const ocorrencias = await buscarOcorrencias(pool, numero);
+		const comunique = ocorrencias.find((o) => o.tipo === "COMUNIQUE_SE" && o.elegivel);
+		const despacho = ocorrencias.find((o) => o.tipo === "DESPACHO" && o.elegivel);
+		const ref = comunique ?? despacho ?? ocorrencias[0];
 
 		return {
-			encontrado: true,
-			comuniqueSeAberto,
-			indeferido,
-			elegivelAutomatico: comuniqueSeAberto || indeferido,
-			processo: ref?.Processo?.trim() || null,
-			protocolo: ref?.Protocolo?.trim() || null,
-			unidade,
-			situacaoComuniqueSe: abertos[0]?.SituacaoComuniqueSe?.trim() || null,
-			situacaoDespacho: indeferidos[0]?.SituacaoDespacho?.trim() || null,
-			campoLocalizado,
+			encontrado: ocorrencias.length > 0,
+			comuniqueSeAberto: !!comunique,
+			indeferido: !!despacho,
+			elegivelAutomatico: !!comunique || !!despacho,
+			ocorrencias,
+			processo: ref?.processo ?? null,
+			protocolo: ref?.protocolo ?? null,
+			unidade: ref?.unidade ?? null,
+			situacaoComuniqueSe: comunique?.situacao ?? null,
+			situacaoDespacho: despacho?.situacao ?? null,
+			campoLocalizado: ocorrencias.some((o) => o.processo === numero) ? "processo" : ocorrencias.length ? "protocolo" : undefined,
 		};
 	} catch (err) {
 		console.warn("[BI] Falha na consulta:", (err as Error).message);
-		return {
-			encontrado: false,
-			comuniqueSeAberto: false,
-			indeferido: false,
-			elegivelAutomatico: false,
-			erroBi: true,
-		};
+		return { ...vazio, erroBi: true };
 	}
 }

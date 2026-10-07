@@ -10,11 +10,23 @@ import { INCLUDE_AGENDAMENTO } from "@/lib/agendamentos-core";
 import { prisma } from "@/lib/prisma";
 import { cancelarReuniaoTeamsInterno } from "@/lib/agendamentos-teams";
 import { instanteUtcRealDesdeDataHoraApi } from "@/lib/date-time";
+import { validarTransicaoAgendamento } from "@/lib/agendamento-transicoes";
 import {
 	criarAgendamentoPortalProcesso,
+	disponibilidadeProcessoPortal,
 	validarNumeroProcessoPortal,
 	type DadosCriacaoPortalProcesso,
 } from "@/lib/portal-processos-core";
+
+export async function consultarHorariosPortalProcesso(token: string, processo: string, ocorrenciaId: string, data: string, modalidade: "PRESENCIAL" | "ONLINE") {
+	try {
+		await requireMunicipeFromToken(token);
+		const resultado = await disponibilidadeProcessoPortal(processo, ocorrenciaId, data, modalidade);
+		return { ok: true as const, data: resultado, error: null };
+	} catch (error) {
+		return { ok: false as const, data: null, error: error instanceof Error ? error.message : "Não foi possível consultar os horários." };
+	}
+}
 
 export async function validarProcessoPortal(token: string, numeroProcesso: string) {
 	try {
@@ -55,7 +67,14 @@ export async function criarSolicitacaoPortalProcesso(
 			error: null,
 			data: {
 				precisaConfirmacao: false as const,
-				agendamento: resultado.agendamento,
+				agendamento: {
+					id: resultado.agendamento.id,
+					status: resultado.agendamento.status,
+					dataHora: resultado.agendamento.dataHora,
+					conferenciaCapStatus: resultado.agendamento.conferenciaCapStatus,
+					coordenadoria: resultado.agendamento.coordenadoria ? { sigla: resultado.agendamento.coordenadoria.sigla } : null,
+					encaminhadoReservaEm: resultado.agendamento.encaminhadoReservaEm,
+				},
 				validacao: resultado.validacao,
 			},
 			status: 201,
@@ -79,7 +98,14 @@ export async function listarAgendamentosPortalProcesso(token: string) {
 		const data = await prisma.agendamento.findMany({
 			where: { municipeContaId: municipe.id, origemPortalProcesso: true },
 			orderBy: { dataHora: "desc" },
-			include: INCLUDE_AGENDAMENTO,
+			select: {
+				id: true, dataHora: true, processo: true, status: true,
+				conferenciaCapStatus: true, modalidade: true, relacaoInteressado: true,
+				localAtendimento: true, sala: true, orientacaoAcesso: true,
+				observacaoCap: true, teamsJoinUrl: true,
+				teamsSyncPendente: true,
+				tipoAgendamento: { select: { texto: true } },
+			},
 		});
 		return { ok: true as const, error: null, data, status: 200 };
 	} catch (error) {
@@ -115,11 +141,8 @@ export async function cancelarAgendamentoPortalProcesso(
 		if (!ag) {
 			return { ok: false as const, error: "Agendamento não encontrado.", data: null, status: 404 };
 		}
-		if (
-			ag.status === StatusAgendamento.CANCELADO ||
-			ag.status === StatusAgendamento.ATENDIDO ||
-			ag.status === StatusAgendamento.NAO_REALIZADO
-		) {
+		try { if (ag.status === StatusAgendamento.CANCELADO) throw new Error('Cancelado'); validarTransicaoAgendamento(ag.status, StatusAgendamento.CANCELADO); }
+		catch {
 			return {
 				ok: false as const,
 				error: "Este agendamento não pode mais ser cancelado.",
@@ -148,8 +171,9 @@ export async function cancelarAgendamentoPortalProcesso(
 				return { ok: false as const, error: resultado.error ?? "Falha ao cancelar.", data: null, status: 400 };
 			}
 		} else {
-			await prisma.agendamento.update({
-				where: { id: ag.id },
+			await prisma.$transaction(async (tx) => {
+				const alterado = await tx.agendamento.updateMany({
+				where: { id: ag.id, status: ag.status, municipeContaId: municipe.id },
 				data: {
 					status: StatusAgendamento.CANCELADO,
 					motivoCancelamento: motivoTrim,
@@ -159,13 +183,18 @@ export async function cancelarAgendamentoPortalProcesso(
 							? ConferenciaCapStatus.AGUARDANDO
 							: ag.conferenciaCapStatus,
 				},
+				});
+				if (!alterado.count) throw new Error('Agendamento alterado. Atualize a página.');
+				await tx.eventoAgendamento.create({ data: {
+					agendamentoId: ag.id, tipo: 'CANCELADO',
+					dados: { statusAnterior: ag.status, motivo: motivoTrim, origem: 'PORTAL' },
+				} });
 			});
 		}
 
-		const atualizado = await prisma.agendamento.findUnique({
-			where: { id: ag.id },
-			include: INCLUDE_AGENDAMENTO,
-		});
+		const atualizado = await prisma.agendamento.findUnique({ where: { id: ag.id }, select: {
+			id: true, status: true, dataHora: true, motivoCancelamento: true, canceladoEm: true,
+		} });
 		revalidateTag("agendamentos", 'max');
 		return { ok: true as const, error: null, data: atualizado, status: 200 };
 	} catch (error) {

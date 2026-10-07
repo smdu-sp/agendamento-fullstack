@@ -53,6 +53,7 @@ async function getGraphToken(): Promise<string> {
 
   const res = await fetch(`${TOKEN_URL_BASE}/${encodeURIComponent(tenant)}/oauth2/v2.0/token`, {
     method: 'POST',
+    signal: AbortSignal.timeout(30_000),
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
   });
@@ -86,6 +87,7 @@ async function graphFetch<T>(
   void _i;
   const res = await fetch(`${GRAPH_BASE}${path}`, {
     ...rest,
+    signal: rest.signal ?? AbortSignal.timeout(30_000),
     headers: {
       Authorization: `Bearer ${token}`,
       ...(rest.body ? { 'Content-Type': 'application/json' } : {}),
@@ -151,6 +153,7 @@ function dataHoraCivilParaGraph(d: Date): string {
 }
 
 export async function graphCriarEventoTeams(params: {
+  transactionId?: string;
   organizerEmail: string;
   assunto: string;
   corpoHtml: string;
@@ -175,6 +178,7 @@ export async function graphCriarEventoTeams(params: {
     });
 
   const payload = {
+    ...(params.transactionId ? { transactionId: params.transactionId } : {}),
     subject: params.assunto,
     body: { contentType: 'HTML', content: params.corpoHtml },
     start: {
@@ -211,6 +215,30 @@ export async function graphCriarEventoTeams(params: {
   }
 
   return { eventId, joinUrl, meetingId };
+}
+
+export async function graphAtualizarEventoTeams(params: {
+  organizerEmail: string;
+  eventId: string;
+  inicio: Date;
+  fim: Date;
+  participantes: GraphAttendee[];
+}): Promise<void> {
+  const vistos = new Set<string>();
+  const attendees = params.participantes.filter((p) => {
+    const email = p.email.trim().toLowerCase();
+    if (!email || vistos.has(email)) return false;
+    vistos.add(email);
+    return true;
+  }).map((p) => ({ emailAddress: { address: p.email.trim(), name: (p.nome || p.email).trim() }, type: 'required' }));
+  await graphFetch(`${usersPath(params.organizerEmail)}/events/${encodeURIComponent(params.eventId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      start: { dateTime: dataHoraCivilParaGraph(params.inicio), timeZone: 'America/Sao_Paulo' },
+      end: { dateTime: dataHoraCivilParaGraph(params.fim), timeZone: 'America/Sao_Paulo' },
+      attendees,
+    }),
+  });
 }
 
 export async function graphResolverMeetingId(

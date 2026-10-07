@@ -31,6 +31,9 @@ model Usuario {
   logImportacoesOutlook  LogImportacaoOutlook[]
   mensagensPreProjetoArthurSaboya SolicitacaoPreProjetoArthurSaboyaMensagem[]
   configuracoesAtualizadas ConfiguracaoSistema[]
+  regrasAgenda AgendaTecnico[]
+  ausencias AusenciaTecnico[]
+  eventosAgendamento EventoAgendamento[]
 
   @@map("usuarios")
 }
@@ -63,6 +66,25 @@ model Agendamento {
   biIndeferido              Boolean           @default(false)
   confirmadoProcessoAusente Boolean           @default(false)
   observacaoCap             String?           @db.Text
+
+  // Contexto preservado no momento da solicitação; independente do técnico do atendimento.
+  modalidade                ModalidadeAgendamento?
+  origemAgendamento         OrigemAgendamento?
+  tipoRecurso               TipoRecursoAtendimento?
+  ocorrenciaBiId            String?           @db.VarChar(64)
+  protocoloOrigem           String?           @db.VarChar(255)
+  sistemaOrigem             String?           @db.VarChar(255)
+  situacaoRecurso           String?           @db.VarChar(255)
+  unidadeOrigem             String?           @db.VarChar(255)
+  responsavelOriginal       String?           @db.VarChar(255)
+  responsavelOriginalRF     String?           @db.VarChar(64)
+  encaminhadoReservaEm      DateTime?
+  motivoEncaminhamentoReserva String?         @db.VarChar(255)
+  snapshotBiEm              DateTime?
+  duvidaAtendimento         String?           @db.Text
+  localAtendimento          String?           @db.VarChar(255)
+  sala                      String?           @db.VarChar(100)
+  orientacaoAcesso          String?           @db.Text
   municipeContaId           String?
   status                    StatusAgendamento @default(SOLICITADO)
 
@@ -71,6 +93,10 @@ model Agendamento {
   teamsMeetingId         String?   @db.Text
   teamsOrganizerEmail    String?   @db.VarChar(255)
   teamsUltimoErro        String?   @db.Text
+  teamsSyncPendente      Boolean   @default(false)
+  teamsSyncVersao        Int       @default(0)
+  teamsSyncTentativas    Int       @default(0)
+  teamsSyncEmProcessamentoAte DateTime?
   motivoCancelamento     String?   @db.Text
   canceladoEm            DateTime?
   canceladoPorId         String?
@@ -86,6 +112,7 @@ model Agendamento {
   tecnico              Usuario?         @relation(fields: [tecnicoId], references: [id], onDelete: NoAction)
   canceladoPor         Usuario?         @relation("AgendamentoCanceladoPor", fields: [canceladoPorId], references: [id], onDelete: SetNull)
   presencasReuniao     PresencaReuniao[]
+  eventos              EventoAgendamento[]
   municipeConta        MunicipeConta?   @relation(fields: [municipeContaId], references: [id], onDelete: SetNull)
 
   solicitacaoPreProjetoArthurSaboya SolicitacaoPreProjetoArthurSaboya?
@@ -93,7 +120,58 @@ model Agendamento {
   @@index([conferenciaCapStatus])
   @@index([municipeContaId])
   @@index([origemPortalProcesso])
+  @@index([ocorrenciaBiId])
+  @@index([teamsSyncPendente, teamsSyncEmProcessamentoAte])
   @@map("agendamentos")
+}
+
+model AgendaTecnico {
+  id              String                @id @default(uuid())
+  tecnicoId       String
+  diaSemana       Int
+  horaInicio      String                @db.VarChar(5)
+  horaFim         String                @db.VarChar(5)
+  duracaoMinutos  Int
+  modalidade      ModalidadeAgendamento
+  vigenciaInicio  DateTime              @db.Date
+  vigenciaFim     DateTime?             @db.Date
+  ativo           Boolean               @default(true)
+  criadoEm        DateTime              @default(now())
+  atualizadoEm    DateTime              @default(now()) @updatedAt
+  tecnico         Usuario               @relation(fields: [tecnicoId], references: [id], onDelete: Restrict)
+
+  @@index([tecnicoId, diaSemana, ativo])
+  @@map("agendas_tecnicos")
+}
+
+model AusenciaTecnico {
+  id              String   @id @default(uuid())
+  tecnicoId       String
+  tipo            String   @db.VarChar(80)
+  dataHoraInicio  DateTime
+  dataHoraFim     DateTime
+  observacao      String?  @db.Text
+  ativo           Boolean  @default(true)
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @default(now()) @updatedAt
+  tecnico         Usuario  @relation(fields: [tecnicoId], references: [id], onDelete: Restrict)
+
+  @@index([tecnicoId, dataHoraInicio, dataHoraFim])
+  @@map("ausencias_tecnicos")
+}
+
+model EventoAgendamento {
+  id             String      @id @default(uuid())
+  agendamentoId  String
+  atorId         String?
+  tipo           String      @db.VarChar(80)
+  dados          Json?
+  criadoEm       DateTime    @default(now())
+  agendamento    Agendamento @relation(fields: [agendamentoId], references: [id], onDelete: Restrict)
+  ator           Usuario?    @relation(fields: [atorId], references: [id], onDelete: SetNull)
+
+  @@index([agendamentoId, criadoEm])
+  @@map("eventos_agendamento")
 }
 
 model TipoAgendamento {
@@ -245,6 +323,21 @@ enum StatusAgendamento {
   CONCLUIDO
   ATENDIDO
   NAO_REALIZADO
+}
+
+enum ModalidadeAgendamento {
+  PRESENCIAL
+  ONLINE
+}
+
+enum OrigemAgendamento {
+  RECURSO
+  ARTHUR_SABOYA
+}
+
+enum TipoRecursoAtendimento {
+  DESPACHO
+  COMUNIQUE_SE
 }
 
 enum RelacaoInteressado {

@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import * as agendamento from "@/services/agendamentos";
+import { consultarDisponibilidadeTecnico } from "@/services/agendamentos/server-functions/agenda-tecnicos";
 import * as coordenadorias from "@/services/coordenadorias";
 import * as usuario from "@/services/usuarios";
 import { StatusAgendamento } from "@/types/agendamento";
@@ -159,6 +160,7 @@ export default function ChamadoPreProjetoPortalView({
   const [enviandoChat, setEnviandoChat] = useState(false);
 
   const [confirmAberto, setConfirmAberto] = useState(false);
+  const [respostaDireta, setRespostaDireta] = useState("");
   const [agendarAberto, setAgendarAberto] = useState(false);
   const [dataHoraAgendamento, setDataHoraAgendamento] = useState("");
   const [coordenadoriaAgendamento, setCoordenadoriaAgendamento] = useState("");
@@ -171,6 +173,10 @@ export default function ChamadoPreProjetoPortalView({
     ITecnico[]
   >([]);
   const [tecnicoCoordenadoriaId, setTecnicoCoordenadoriaId] = useState("");
+  const [diaCoordenadoria, setDiaCoordenadoria] = useState("");
+  const [slotCoordenadoria, setSlotCoordenadoria] = useState("");
+  const [slotsCoordenadoria, setSlotsCoordenadoria] = useState<{ inicio: string; fim: string }[]>([]);
+  const [erroSlotsCoordenadoria, setErroSlotsCoordenadoria] = useState<string | null>(null);
   const [coordenadoriaUsuarioId, setCoordenadoriaUsuarioId] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [agendamentoIdParaConfirmarOutlook, setAgendamentoIdParaConfirmarOutlook] = useState<string | null>(null);
@@ -299,10 +305,15 @@ export default function ChamadoPreProjetoPortalView({
 
   const handleConfirmarRespondido = async () => {
     if (!token || !chamado) return;
+    if (respostaDireta.trim().length < 2) {
+      toast.error("Escreva a resposta antes de concluir o chamado.");
+      return;
+    }
     setSalvando(true);
     const res = await agendamento.confirmarRespostaEnviadaPortalArthurSaboya(
       token,
       chamado.protocolo,
+      respostaDireta.trim(),
     );
     setSalvando(false);
     if (!res.ok) {
@@ -310,6 +321,7 @@ export default function ChamadoPreProjetoPortalView({
       return;
     }
     toast.success("Status atualizado para Solucionado.");
+    setRespostaDireta("");
     setConfirmAberto(false);
     void carregarChamado();
   };
@@ -350,10 +362,6 @@ export default function ChamadoPreProjetoPortalView({
 
   const handleCriarAgendamento = async () => {
     if (!token || !chamado) return;
-    if (!dataHoraAgendamento.trim()) {
-      toast.error("Informe data e hora do agendamento.");
-      return;
-    }
     if (!coordenadoriaAgendamento) {
       toast.error("Selecione a coordenadoria.");
       return;
@@ -362,23 +370,21 @@ export default function ChamadoPreProjetoPortalView({
       toast.error("Selecione o técnico da Sala Arthur Saboya.");
       return;
     }
-    const dataSelecionada = new Date(dataHoraAgendamento);
-    const minuto = dataSelecionada.getMinutes();
-    if (
-      Number.isNaN(dataSelecionada.getTime()) ||
-      (minuto !== 0 && minuto !== 30)
-    ) {
+    const dataSelecionada = dataHoraAgendamento ? new Date(dataHoraAgendamento) : null;
+    const minuto = dataSelecionada?.getMinutes();
+    if (dataSelecionada && (Number.isNaN(dataSelecionada.getTime()) ||
+      (minuto !== 0 && minuto !== 30))) {
       toast.error("Selecione um horário com minutos 00 ou 30.");
       return;
     }
     setSalvando(true);
-    const iso = dataSelecionada.toISOString();
+    const iso = dataSelecionada?.toISOString();
     const res =
       await agendamento.criarAgendamentoDaSolicitacaoPortalArthurSaboya(
         token,
         chamado.protocolo,
         {
-          dataHora: iso,
+          ...(chamado.status === "AGENDAMENTO_CRIADO" ? {} : { dataHora: iso }),
           coordenadoriaId: coordenadoriaAgendamento,
           tecnicoId: tecnicoArthurIdAgendamento,
         },
@@ -404,8 +410,29 @@ export default function ChamadoPreProjetoPortalView({
 
   const abrirAtribuirTecnicoCoordenadoria = () => {
     setTecnicoCoordenadoriaId("");
+    setDiaCoordenadoria(chamado?.dataAgendamento?.slice(0, 10) ?? "");
+    setSlotCoordenadoria("");
     setAtribuirCoordAberto(true);
   };
+
+  useEffect(() => {
+    if (!atribuirCoordAberto || !tecnicoCoordenadoriaId || !diaCoordenadoria) {
+      setSlotsCoordenadoria([]);
+      return;
+    }
+    let ativo = true;
+    setSlotCoordenadoria("");
+    setErroSlotsCoordenadoria(null);
+    void consultarDisponibilidadeTecnico(tecnicoCoordenadoriaId, diaCoordenadoria, "ONLINE")
+      .then((slots) => { if (ativo) setSlotsCoordenadoria(slots); })
+      .catch((erro: unknown) => {
+        if (ativo) {
+          setSlotsCoordenadoria([]);
+          setErroSlotsCoordenadoria(erro instanceof Error ? erro.message : "Não foi possível consultar a agenda.");
+        }
+      });
+    return () => { ativo = false; };
+  }, [atribuirCoordAberto, tecnicoCoordenadoriaId, diaCoordenadoria]);
 
   const handleConfirmarAgendadoOutlook = async (confirmado: boolean) => {
     if (confirmado && agendamentoIdParaConfirmarOutlook) {
@@ -485,6 +512,10 @@ export default function ChamadoPreProjetoPortalView({
       toast.error("Selecione o técnico da coordenadoria.");
       return;
     }
+    if (!slotCoordenadoria) {
+      toast.error("Selecione um horário disponível na agenda do técnico.");
+      return;
+    }
 
     const tecnicoSelecionado = tecnicosCoordenadoria.find(
       (t) => t.id === tecnicoCoordenadoriaId,
@@ -516,9 +547,7 @@ export default function ChamadoPreProjetoPortalView({
       return;
     }
 
-    const dataBase = chamado.dataAgendamento
-      ? instanteUtcRealDesdeDataHoraApi(chamado.dataAgendamento)
-      : null;
+    const dataBase = new Date(slotCoordenadoria);
     if (!dataBase || Number.isNaN(dataBase.getTime())) {
       toast.error("Data/hora do agendamento não está definida.");
       return;
@@ -531,7 +560,7 @@ export default function ChamadoPreProjetoPortalView({
       await agendamento.atribuirTecnicoCoordenadoriaSolicitacaoPortalArthurSaboya(
         token,
         chamado.protocolo,
-        { tecnicoId: tecnicoCoordenadoriaId },
+        { tecnicoId: tecnicoCoordenadoriaId, dataHora: slotCoordenadoria },
       );
     if (!res.ok) {
       setSalvando(false);
@@ -852,10 +881,14 @@ export default function ChamadoPreProjetoPortalView({
           <DialogHeader>
             <DialogTitle>Confirmar status</DialogTitle>
           </DialogHeader>
-          <p className="text-sm">
-            Confirma que a dúvida foi solucionada? O status passa para{" "}
-            <strong>Solucionado</strong>.
-          </p>
+          <div className="space-y-2 text-sm">
+            <label htmlFor="resposta-direta-arthur" className="font-medium">Resposta ao munícipe</label>
+            <textarea id="resposta-direta-arthur" className="border-input bg-background min-h-28 w-full rounded-md border p-3"
+              maxLength={5000} value={respostaDireta}
+              onChange={(e) => setRespostaDireta(e.target.value)}
+              placeholder="Descreva a orientação que será registrada no chamado." />
+            <p>Ao confirmar, a resposta ficará no histórico e o chamado será solucionado.</p>
+          </div>
           <DialogFooter className="gap-2">
             <Button
               type="button"
@@ -892,7 +925,7 @@ export default function ChamadoPreProjetoPortalView({
               </p>
               <div className="space-y-1">
                 <label className="font-medium" htmlFor="dt-ag-full">
-                  Data e hora
+                  Data e hora sugerida (opcional)
                 </label>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <Input
@@ -1075,6 +1108,28 @@ export default function ChamadoPreProjetoPortalView({
                     </option>
                   ))}
                 </select>
+              </div>
+              <div className="space-y-1">
+                <label className="font-medium" htmlFor="dia-coord-full">Data do atendimento</label>
+                <Input id="dia-coord-full" type="date" value={diaCoordenadoria}
+                  onChange={(e) => setDiaCoordenadoria(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <label className="font-medium" htmlFor="slot-coord-full">Horário disponível</label>
+                <select id="slot-coord-full"
+                  className="border-input bg-background flex h-10 w-full rounded-md border px-3 py-2 text-sm"
+                  value={slotCoordenadoria} onChange={(e) => setSlotCoordenadoria(e.target.value)}
+                  disabled={!tecnicoCoordenadoriaId || !diaCoordenadoria}>
+                  <option value="">Selecione um horário</option>
+                  {slotsCoordenadoria.map((slot) => (
+                    <option key={slot.inicio} value={slot.inicio}>
+                      {slot.inicio.slice(11, 16)}–{slot.fim.slice(11, 16)}
+                    </option>
+                  ))}
+                </select>
+                {erroSlotsCoordenadoria && <p className="text-destructive text-xs">{erroSlotsCoordenadoria}</p>}
+                {!erroSlotsCoordenadoria && tecnicoCoordenadoriaId && diaCoordenadoria && slotsCoordenadoria.length === 0 &&
+                  <p className="text-muted-foreground text-xs">Nenhum horário disponível nessa data.</p>}
               </div>
             </div>
           ) : null}

@@ -30,6 +30,23 @@ export interface IAgendamento {
   telefone?: string | null;
   relacaoInteressado?: string | null;
   origemPortalProcesso?: boolean;
+  modalidade?: "PRESENCIAL" | "ONLINE" | null;
+  origemAgendamento?: "RECURSO" | "ARTHUR_SABOYA" | null;
+  tipoRecurso?: "DESPACHO" | "COMUNIQUE_SE" | null;
+  ocorrenciaBiId?: string | null;
+  protocoloOrigem?: string | null;
+  sistemaOrigem?: string | null;
+  situacaoRecurso?: string | null;
+  unidadeOrigem?: string | null;
+  responsavelOriginal?: string | null;
+  responsavelOriginalRF?: string | null;
+  encaminhadoReservaEm?: Date | string | null;
+  motivoEncaminhamentoReserva?: string | null;
+  snapshotBiEm?: Date | string | null;
+  duvidaAtendimento?: string | null;
+  localAtendimento?: string | null;
+  sala?: string | null;
+  orientacaoAcesso?: string | null;
   conferenciaCapStatus?: "AGUARDANDO" | "ENCAMINHADO" | "NAO_ENCONTRADO" | null;
   unidadeDespachoBi?: string | null;
   encontradoNoBi?: boolean | null;
@@ -43,6 +60,7 @@ export interface IAgendamento {
   teamsMeetingId?: string | null;
   teamsOrganizerEmail?: string | null;
   teamsUltimoErro?: string | null;
+  teamsSyncPendente?: boolean;
   motivoCancelamento?: string | null;
   canceladoEm?: Date | string | null;
   canceladoPorId?: string | null;
@@ -100,7 +118,11 @@ export interface IUpdateAgendamento {
   tecnicoId?: string;
   tecnicoRF?: string;
   email?: string;
+  localAtendimento?: string;
+  sala?: string;
+  orientacaoAcesso?: string;
   status?: StatusAgendamento;
+  motivoCancelamento?: string;
 }
 
 export interface IPaginadoAgendamento {

@@ -11,7 +11,7 @@ import {
 	DialogTitle,
 } from '@/components/ui/dialog';
 import { IAgendamento, StatusAgendamento } from '@/types/agendamento';
-import * as agendamentoClient from '@/services/agendamentos/client-functions';
+import { atualizar } from '@/services/agendamentos/server-functions';
 import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
@@ -39,28 +39,17 @@ export default function ConfirmarAtendimento({
 	const { data: session } = useSession();
 	const router = useRouter();
 	const [isLoading, setIsLoading] = useState(false);
-	type StatusOpcao = '' | 'AGENDADO' | 'ATENDIDO' | 'NAO_REALIZADO';
+	type StatusOpcao = '' | 'ATENDIDO' | 'NAO_REALIZADO' | 'CONCLUIDO';
 	const [statusSelecionado, setStatusSelecionado] = useState<StatusOpcao>('');
 	const [motivoSelecionado, setMotivoSelecionado] = useState<string>('');
 	const [motivos, setMotivos] = useState<IMotivo[]>([]);
 
-	const ehEdicao = agendamento.status === 'ATENDIDO' || agendamento.status === 'NAO_REALIZADO';
+	const ehEdicao = agendamento.status === 'ATENDIDO';
 
-	// Inicializa: na edição, preenche com o status atual (ATENDIDO ou NAO_REALIZADO)
 	useEffect(() => {
-		if (ehEdicao) {
-			setStatusSelecionado(agendamento.status as 'ATENDIDO' | 'NAO_REALIZADO');
-			if (agendamento.status === 'NAO_REALIZADO') {
-				const id = agendamento.motivoNaoAtendimentoId || agendamento.motivoNaoAtendimento?.id || '';
-				setMotivoSelecionado(id);
-			} else {
-				setMotivoSelecionado('');
-			}
-		} else {
-			setStatusSelecionado('');
-			setMotivoSelecionado('');
-		}
-	}, [ehEdicao, agendamento.status, agendamento.motivoNaoAtendimentoId, agendamento.motivoNaoAtendimento?.id]);
+		setStatusSelecionado('');
+		setMotivoSelecionado('');
+	}, [agendamento.status]);
 
 	// Carrega motivos quando seleciona Não realizado
 	useEffect(() => {
@@ -87,24 +76,19 @@ export default function ConfirmarAtendimento({
 
 		setIsLoading(true);
 		try {
-			const payload =
-				statusSelecionado === 'AGENDADO'
-					? { status: StatusAgendamento.AGENDADO }
-					: statusSelecionado === 'ATENDIDO'
-					? { status: StatusAgendamento.ATENDIDO }
-					: { status: StatusAgendamento.NAO_REALIZADO, motivoNaoAtendimentoId: motivoSelecionado };
+			const payload = statusSelecionado === 'ATENDIDO'
+				? { status: StatusAgendamento.ATENDIDO }
+				: statusSelecionado === 'CONCLUIDO'
+				? { status: StatusAgendamento.CONCLUIDO }
+				: { status: StatusAgendamento.NAO_REALIZADO, motivoNaoAtendimentoId: motivoSelecionado };
 
-			const response = await agendamentoClient.atualizar(agendamento.id, payload, session.access_token);
+			const response = await atualizar(agendamento.id, payload);
 
 			if (response.error) {
 				toast.error(response.error);
 			} else {
-				const msg =
-					statusSelecionado === 'AGENDADO'
-						? 'Revertido para Agendado. O técnico poderá confirmar novamente.'
-						: statusSelecionado === 'ATENDIDO'
-						? ehEdicao ? 'Alterado para Atendido.' : 'Atendimento confirmado.'
-						: ehEdicao ? 'Alterado para Não Realizado.' : 'Não realização registrada.';
+				const msg = statusSelecionado === 'CONCLUIDO' ? 'Atendimento concluído.'
+					: statusSelecionado === 'ATENDIDO' ? 'Atendimento confirmado.' : 'Não realização registrada.';
 				toast.success(msg);
 				onSuccess();
 				onClose();
@@ -137,13 +121,9 @@ export default function ConfirmarAtendimento({
 								<SelectValue placeholder='Selecione o status...' />
 							</SelectTrigger>
 							<SelectContent>
-								{ehEdicao && (
-									<SelectItem value='AGENDADO'>
-										Agendado (reverter confirmação — ex.: confirmou o agendamento errado)
-									</SelectItem>
-								)}
-								<SelectItem value='ATENDIDO'>Atendido</SelectItem>
-								<SelectItem value='NAO_REALIZADO'>Não realizado</SelectItem>
+								{ehEdicao ? <SelectItem value='CONCLUIDO'>Concluído</SelectItem> : null}
+								{!ehEdicao ? <SelectItem value='ATENDIDO'>Atendido</SelectItem> : null}
+								{!ehEdicao ? <SelectItem value='NAO_REALIZADO'>Não realizado</SelectItem> : null}
 							</SelectContent>
 						</Select>
 					</div>

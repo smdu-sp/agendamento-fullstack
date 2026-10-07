@@ -14,6 +14,7 @@ export interface IRespostaMutacaoSolicitacao {
 export async function confirmarRespostaEnviadaPortalArthurSaboya(
   access_token: string,
   solicitacaoId: string,
+  resposta?: string,
 ): Promise<IRespostaMutacaoSolicitacao> {
   const baseURL = getApiUrl();
   if (!baseURL) {
@@ -33,6 +34,7 @@ export async function confirmarRespostaEnviadaPortalArthurSaboya(
         "Content-Type": "application/json",
         ...getAuthHeaders(access_token),
       },
+      body: JSON.stringify({ resposta }),
       cache: "no-store",
     });
     let body: unknown;
@@ -136,7 +138,7 @@ export async function marcarAguardandoDataPortalArthurSaboya(
 export async function criarAgendamentoDaSolicitacaoPortalArthurSaboya(
   access_token: string,
   solicitacaoId: string,
-  payload: { dataHora: string; coordenadoriaId: string; tecnicoId: string },
+  payload: { dataHora?: string; coordenadoriaId: string; tecnicoId: string },
 ): Promise<IRespostaMutacaoSolicitacao> {
   const baseURL = getApiUrl();
   if (!baseURL) {
@@ -199,7 +201,7 @@ export async function criarAgendamentoDaSolicitacaoPortalArthurSaboya(
 export async function atribuirTecnicoCoordenadoriaSolicitacaoPortalArthurSaboya(
   access_token: string,
   solicitacaoId: string,
-  payload: { tecnicoId: string },
+  payload: { tecnicoId: string; dataHora: string },
 ): Promise<IRespostaMutacaoSolicitacao> {
   const baseURL = getApiUrl();
   if (!baseURL) {

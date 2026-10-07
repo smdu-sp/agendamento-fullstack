@@ -7,7 +7,7 @@ import { IAgendamento, IRespostaAgendamento } from '@/types/agendamento';
 import { requireUsuarioOuRedirect, verificarPermissoes, AuthzError } from '@/lib/authz';
 import { prisma } from '@/lib/prisma';
 import { INCLUDE_AGENDAMENTO } from '@/lib/agendamentos-core';
-import { criarReuniaoTeamsSePossivel } from '@/lib/agendamentos-teams';
+import { sincronizarReuniaoTeamsPendente } from '@/lib/agendamentos-teams';
 
 export async function agendarReuniaoTeams(id: string): Promise<IRespostaAgendamento> {
   const usuario = await requireUsuarioOuRedirect();
@@ -17,10 +17,16 @@ export async function agendarReuniaoTeams(id: string): Promise<IRespostaAgendame
 
     const ag = await prisma.agendamento.findUnique({
       where: { id },
-      select: { coordenadoriaId: true },
+      select: { coordenadoriaId: true, modalidade: true, status: true },
     });
     if (!ag) {
       return { ok: false, error: 'Agendamento não encontrado.', data: null, status: 404 };
+    }
+    if (ag.modalidade === 'PRESENCIAL') {
+      return { ok: false, error: 'Atendimento presencial não utiliza reunião Teams.', data: null, status: 400 };
+    }
+    if (!['SOLICITADO', 'AGENDADO'].includes(ag.status)) {
+      return { ok: false, error: 'Estado do atendimento não permite criar ou atualizar reunião.', data: null, status: 400 };
     }
 
     const ehPFouCoord =
@@ -32,7 +38,10 @@ export async function agendarReuniaoTeams(id: string): Promise<IRespostaAgendame
       }
     }
 
-    const resultado = await criarReuniaoTeamsSePossivel(id);
+    await prisma.agendamento.update({ where: { id }, data: {
+      teamsSyncPendente: true, teamsSyncVersao: { increment: 1 }, teamsSyncTentativas: 0,
+    } });
+    const resultado = await sincronizarReuniaoTeamsPendente(id);
     const atualizado = await prisma.agendamento.findUnique({
       where: { id },
       include: INCLUDE_AGENDAMENTO,

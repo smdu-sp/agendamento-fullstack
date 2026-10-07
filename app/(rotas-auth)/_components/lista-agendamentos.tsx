@@ -424,6 +424,7 @@ export default function ListaAgendamentos({
                   // Atribuir/editar técnico: Ponto Focal e Coordenador (quando há coordenadoria); ADM/DEV só quando status Atendido ou Não Realizado
                   const podeAtribuir =
                     !!agend.coordenadoriaId &&
+                    !(agend.modalidade && [StatusAgendamento.CANCELADO, StatusAgendamento.CONCLUIDO, StatusAgendamento.NAO_REALIZADO].includes(agend.status)) &&
                     (isPontoFocal ||
                       isCoordenador ||
                       ((isAdm || isDev) &&
@@ -442,12 +443,10 @@ export default function ListaAgendamentos({
 
                   // Pendentes: técnico ainda não confirmou (AGENDADO ou CONCLUIDO)
                   const statusPendente =
-                    agend.status === StatusAgendamento.AGENDADO ||
-                    agend.status === StatusAgendamento.CONCLUIDO;
+                    agend.status === StatusAgendamento.AGENDADO;
                   // Já confirmados: técnico já alterou (ATENDIDO ou NAO_REALIZADO)
                   const statusJaConfirmado =
-                    agend.status === StatusAgendamento.ATENDIDO ||
-                    agend.status === StatusAgendamento.NAO_REALIZADO;
+                    agend.status === StatusAgendamento.ATENDIDO;
 
                   // Confirmar: técnico do agendamento, ou ADM/DEV, ou coordenador quando é o técnico
                   const basePode =
@@ -515,8 +514,14 @@ export default function ListaAgendamentos({
                               agendamentoId={agend.id}
                               coordenadoriaId={agend.coordenadoriaId!}
                               tecnicoAtual={agend.tecnico}
+                              usarAgenda={!!agend.modalidade && !!agend.origemPortalProcesso}
+                              dataHora={agend.dataHora}
+                              modalidade={agend.modalidade}
                               onSuccess={recarregar}
                             />
+                            {agend.encaminhadoReservaEm && !agend.tecnico ? (
+                              <span className="text-xs font-medium text-amber-700">Técnico reserva · {agend.motivoEncaminhamentoReserva}</span>
+                            ) : null}
                             {agend.importadoOutlook && agend.tecnicoResponsavelPlanilha && !agend.tecnico && (
                               <span className="text-xs text-muted-foreground">
                                 Planilha: {agend.tecnicoResponsavelPlanilha}
@@ -525,6 +530,7 @@ export default function ListaAgendamentos({
                           </div>
                         ) : (
                           <div className="flex flex-col gap-1">
+                            {agend.encaminhadoReservaEm && !agend.tecnico ? <span className="text-xs font-medium text-amber-700">Técnico reserva</span> : null}
                             {agend.tecnico?.nome || (
                               agend.tecnicoResponsavelPlanilha ? (
                                 <span className="text-muted-foreground">

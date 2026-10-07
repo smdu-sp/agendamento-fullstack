@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import {
@@ -31,7 +32,6 @@ import {
   obterTokenMunicipe,
 } from "@/lib/municipe-sessao"
 import {
-  HORARIOS_PORTAL_PROCESSO,
   RELACOES_INTERESSADO,
   TIPOS_AGENDAMENTO_PORTAL_PROCESSO,
   mascararCpfInput,
@@ -42,6 +42,7 @@ import {
 } from "@/lib/portal-processos-constantes"
 import { validaCPF_CNPJ } from "@/lib/utils"
 import * as agendamento from "@/services/agendamentos"
+import type { OcorrenciaBi } from "@/lib/bi-processos"
 import { formatarDataHoraSaoPaulo } from "@/lib/date-time"
 import { ptBR } from "date-fns/locale"
 import { cn } from "@/lib/utils"
@@ -82,10 +83,18 @@ export function FormAgendamentoProcesso() {
   const [cpf, setCpf] = useState("")
   const [telefone, setTelefone] = useState("")
   const [processo, setProcesso] = useState("")
+  const [ocorrencias, setOcorrencias] = useState<OcorrenciaBi[]>([])
+  const [ocorrenciaId, setOcorrenciaId] = useState("")
   const [tipoTexto, setTipoTexto] = useState("")
+  const [modalidade, setModalidade] = useState<"PRESENCIAL" | "ONLINE" | "">("")
+  const [duvidaAtendimento, setDuvidaAtendimento] = useState("")
   const [relacao, setRelacao] = useState<RelacaoInteressadoValor | "">("")
   const [dataSel, setDataSel] = useState<Date | undefined>()
   const [horaSel, setHoraSel] = useState("")
+  const [horariosAgenda, setHorariosAgenda] = useState<string[] | null>(null)
+  const [horariosReserva, setHorariosReserva] = useState<string[]>([])
+  const [tipoHorario, setTipoHorario] = useState<"AGENDA" | "PREFERENCIA">("PREFERENCIA")
+  const [consultandoHorarios, setConsultandoHorarios] = useState(false)
   const [validando, setValidando] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [dialogoAberto, setDialogoAberto] = useState(false)
@@ -94,6 +103,7 @@ export function FormAgendamentoProcesso() {
   const [enviado, setEnviado] = useState(false)
   const [resumoEnvio, setResumoEnvio] = useState<{
     conferencia: boolean
+    reserva?: boolean
     coordenadoria?: string | null
     dataHora?: string
   } | null>(null)
@@ -111,30 +121,50 @@ export function FormAgendamentoProcesso() {
     setEmail(obterEmailMunicipe() ?? "")
   }, [autenticado])
 
+  useEffect(() => {
+    if (!dataSel || !ocorrenciaId || !modalidade || tipoTexto !== TIPOS_AGENDAMENTO_PORTAL_PROCESSO[0].texto) {
+      setHorariosAgenda(null)
+      setHorariosReserva([])
+      setTipoHorario("PREFERENCIA")
+      return
+    }
+    const token = obterTokenMunicipe()
+    if (!token) return
+    let ativo = true
+    setConsultandoHorarios(true)
+    setHorariosAgenda(null)
+    setHorariosReserva([])
+    agendamento.consultarHorariosPortalProcesso(token, processo.trim(), ocorrenciaId, dataIsoLocal(dataSel), modalidade)
+      .then((res) => {
+        if (!ativo) return
+        if (!res.ok || !res.data) {
+          setTipoHorario("AGENDA")
+          setHorariosAgenda([])
+          setHoraSel("")
+          toast.error(res.error ?? "Não foi possível consultar os horários.")
+          return
+        }
+        setTipoHorario(res.data.tipo)
+        setHorariosAgenda(res.data.horarios)
+        if (res.data.tipo === "AGENDA") setHoraSel((atual) => res.data!.horarios.includes(atual) ? atual : "")
+        setHorariosReserva("horariosReserva" in res.data ? res.data.horariosReserva ?? [] : [])
+      })
+      .finally(() => { if (ativo) setConsultandoHorarios(false) })
+    return () => { ativo = false }
+  }, [dataSel, ocorrenciaId, modalidade, processo, tipoTexto])
+
   const passo1Ok = useMemo(() => {
     return (
       validaCPF_CNPJ(somenteDigitos(cpf)) &&
       somenteDigitos(telefone).length >= 10 &&
       processo.trim().length > 0 &&
       Boolean(tipoTexto) &&
+      (tipoTexto !== TIPOS_AGENDAMENTO_PORTAL_PROCESSO[0].texto || (Boolean(modalidade) && duvidaAtendimento.trim().length >= 10)) &&
       Boolean(relacao)
     )
-  }, [cpf, telefone, processo, tipoTexto, relacao])
+  }, [cpf, telefone, processo, tipoTexto, modalidade, duvidaAtendimento, relacao])
 
-  const horariosDisponiveis = useMemo(() => {
-    if (!dataSel) return [...HORARIOS_PORTAL_PROCESSO]
-    const agora = partesAgoraSaoPaulo()
-    const mesmoDia =
-      dataSel.getFullYear() === agora.ano &&
-      dataSel.getMonth() + 1 === agora.mes &&
-      dataSel.getDate() === agora.dia
-    if (!mesmoDia) return [...HORARIOS_PORTAL_PROCESSO]
-    const minutosAgora = agora.hora * 60 + agora.minuto
-    return HORARIOS_PORTAL_PROCESSO.filter((h) => {
-      const [hh, mm] = h.split(":").map(Number)
-      return hh * 60 + mm > minutosAgora
-    })
-  }, [dataSel])
+  const horariosDisponiveis = horariosAgenda ?? []
 
   async function irParaPasso2(forcarConfirmacao = false) {
     const token = obterTokenMunicipe()
@@ -150,14 +180,28 @@ export function FormAgendamentoProcesso() {
         return
       }
       const v = res.data
-      const precisaConfirmar = !v.elegivelAutomatico && !forcarConfirmacao && !confirmadoAusente
-      if (precisaConfirmar) {
+	      if (v.erroBi) {
+	        toast.error("Não foi possível consultar o BI. Tente novamente mais tarde.")
+	        return
+	      }
+	      setOcorrencias(v.ocorrencias)
+	      if (v.encontrado && tipoTexto === TIPOS_AGENDAMENTO_PORTAL_PROCESSO[0].texto) {
+	        setConfirmadoAusente(false)
+	        if (!v.ocorrencias.some((item) => item.id === ocorrenciaId && item.elegivel)) {
+	          setOcorrenciaId("")
+	          toast.error(v.elegivelAutomatico ? "Selecione a ocorrência relacionada à sua dúvida." : "Nenhuma ocorrência permite atendimento.")
+	          return
+	        }
+	        setPasso(2)
+	        return
+	      }
+	      if (v.elegivelAutomatico && tipoTexto !== TIPOS_AGENDAMENTO_PORTAL_PROCESSO[0].texto) {
+	        setPasso(2)
+	        return
+	      }
+	      if (!forcarConfirmacao && !confirmadoAusente) {
         setMensagemDialogo(
-          v.erroBi
-            ? "Não foi possível consultar a base neste momento (a atualização do BI pode levar até 7 dias). O número do processo está correto?"
-            : v.encontrado
-              ? "Localizamos o número, mas não há comunique-se aberto nem indeferimento na base (atualizada com até 7 dias de atraso). O número está correto?"
-              : "Não encontramos este processo na base (atualizada com até 7 dias de atraso). O número está correto?",
+	          "Não encontramos este processo na base (atualizada com até 7 dias de atraso). O número está correto?",
         )
         setDialogoAberto(true)
         return
@@ -177,6 +221,9 @@ export function FormAgendamentoProcesso() {
         cpf: somenteDigitos(cpf),
         telefone: somenteDigitos(telefone),
         processo: processo.trim(),
+        ocorrenciaId: tipoTexto === TIPOS_AGENDAMENTO_PORTAL_PROCESSO[0].texto ? ocorrenciaId || undefined : undefined,
+        modalidade: tipoTexto === TIPOS_AGENDAMENTO_PORTAL_PROCESSO[0].texto ? modalidade || undefined : undefined,
+        duvidaAtendimento: tipoTexto === TIPOS_AGENDAMENTO_PORTAL_PROCESSO[0].texto ? duvidaAtendimento : undefined,
         tipoAgendamentoTexto: tipoTexto,
         relacaoInteressado: relacao,
         data: dataIsoLocal(dataSel),
@@ -198,6 +245,7 @@ export function FormAgendamentoProcesso() {
       const validacao = "validacao" in res.data ? res.data.validacao : null
       setResumoEnvio({
         conferencia: ag?.conferenciaCapStatus === "AGUARDANDO",
+        reserva: !!ag?.encaminhadoReservaEm,
         coordenadoria: ag?.coordenadoria?.sigla ?? validacao?.siglaCoordenadoria,
         dataHora: ag?.dataHora ? formatarDataHoraSaoPaulo(ag.dataHora, true) : undefined,
       })
@@ -260,13 +308,17 @@ export function FormAgendamentoProcesso() {
                     <CardDescription className="text-green-700">
                       {resumoEnvio?.conferencia
                         ? "Sua solicitação foi enviada para conferência da CAP. A base do BI pode levar até 7 dias para atualizar; a equipe analisará e encaminhará à coordenadoria responsável ou responderá se o processo não for localizado."
+                        : resumoEnvio?.reserva
+                        ? "O técnico responsável está ausente nesse horário. Sua solicitação foi encaminhada ao ponto focal para atribuição de um técnico reserva e confirmação do atendimento."
                         : `Sua solicitação foi enviada${resumoEnvio?.coordenadoria ? ` à coordenadoria ${resumoEnvio.coordenadoria}` : " à coordenadoria responsável"}. O ponto focal atribuirá um técnico e confirmará o horário.`}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="rounded-lg bg-card p-4 text-sm">
                       <p><span className="text-muted-foreground">Processo:</span> {processo}</p>
+                      {ocorrenciaId ? <p><span className="text-muted-foreground">Recurso:</span> {ocorrencias.find((item) => item.id === ocorrenciaId)?.tipo === "DESPACHO" ? "Despacho indeferido" : "Comunique-se"}</p> : null}
                       <p><span className="text-muted-foreground">Tipo:</span> {tipoTexto}</p>
+                      {modalidade && tipoTexto === TIPOS_AGENDAMENTO_PORTAL_PROCESSO[0].texto ? <p><span className="text-muted-foreground">Modalidade:</span> {modalidade === "ONLINE" ? "Online" : "Presencial"}</p> : null}
                       <p><span className="text-muted-foreground">Data/hora:</span> {resumoEnvio?.dataHora ?? (dataSel && horaSel ? `${formatarDataBr(dataSel)} às ${horaSel}` : "—")}</p>
                     </div>
                     <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
@@ -359,11 +411,31 @@ export function FormAgendamentoProcesso() {
                           onChange={(e) => {
                             setProcesso(e.target.value)
                             setConfirmadoAusente(false)
+                            setOcorrencias([])
+                            setOcorrenciaId("")
                           }}
                           placeholder="0000.0000/0000000-0 ou protocolo"
                           required
                         />
                       </div>
+                      {ocorrencias.length > 0 && tipoTexto === TIPOS_AGENDAMENTO_PORTAL_PROCESSO[0].texto ? (
+                        <div className="space-y-3">
+                          <p className="text-sm font-medium">Selecione a ocorrência relacionada à sua dúvida</p>
+                          <RadioGroup value={ocorrenciaId || undefined} onValueChange={setOcorrenciaId} className="gap-3">
+                            {ocorrencias.map((item) => (
+                              <div key={item.id} className="flex items-start gap-3 rounded-md border bg-white p-3">
+                                <RadioGroupItem value={item.id} id={`ocorrencia-${item.id}`} disabled={!item.elegivel} className="mt-1" />
+                                <Label htmlFor={`ocorrencia-${item.id}`} className="cursor-pointer font-normal leading-relaxed">
+                                  <span className="font-medium">{item.tipo === "DESPACHO" ? "Despacho" : "Comunique-se"}</span>
+                                  {` · Processo: ${item.processo ?? "—"} · Protocolo: ${item.protocolo ?? "—"}`}
+                                  {` · Sistema: ${item.sistema ?? "—"} · Situação: ${item.situacao ?? "—"} · Unidade: ${item.unidade ?? "—"}`}
+                                  {!item.elegivel ? " · Não elegível para atendimento" : ""}
+                                </Label>
+                              </div>
+                            ))}
+                          </RadioGroup>
+                        </div>
+                      ) : null}
                       <div className="space-y-3">
                         <p className="text-sm font-medium">Tipo de agendamento</p>
                         <RadioGroup value={tipoTexto || undefined} onValueChange={setTipoTexto} className="gap-3">
@@ -377,6 +449,28 @@ export function FormAgendamentoProcesso() {
                           ))}
                         </RadioGroup>
                       </div>
+                      {tipoTexto === TIPOS_AGENDAMENTO_PORTAL_PROCESSO[0].texto ? (
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="duvida-atendimento">Qual é a sua dúvida?</Label>
+                            <Textarea
+                              id="duvida-atendimento"
+                              value={duvidaAtendimento}
+                              onChange={(e) => setDuvidaAtendimento(e.target.value)}
+                              minLength={10}
+                              maxLength={5000}
+                              placeholder="Descreva o assunto do atendimento"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium">Modalidade do atendimento</p>
+                            <RadioGroup value={modalidade || undefined} onValueChange={(valor) => setModalidade(valor as "PRESENCIAL" | "ONLINE")} className="flex flex-wrap gap-4">
+                              <div className="flex items-center gap-2"><RadioGroupItem value="ONLINE" id="modalidade-online" /><Label htmlFor="modalidade-online">Online</Label></div>
+                              <div className="flex items-center gap-2"><RadioGroupItem value="PRESENCIAL" id="modalidade-presencial" /><Label htmlFor="modalidade-presencial">Presencial</Label></div>
+                            </RadioGroup>
+                          </div>
+                        </div>
+                      ) : null}
                       <div className="space-y-3">
                         <p className="text-sm font-medium">Relação com o projeto</p>
                         <RadioGroup
@@ -414,7 +508,7 @@ export function FormAgendamentoProcesso() {
                         <CalendarDays className="h-5 w-5 text-[#E56E14]" />
                         Escolha a data e o horário
                       </CardTitle>
-                      <CardDescription>Dias úteis, das 9h às 16h. O horário será confirmado pela coordenadoria.</CardDescription>
+                      <CardDescription>{tipoHorario === "AGENDA" ? "Horários disponíveis na agenda do técnico." : "Informe um horário de preferência. A coordenadoria confirmará a disponibilidade."}</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
                       <Calendar
@@ -435,7 +529,9 @@ export function FormAgendamentoProcesso() {
                       {dataSel ? (
                         <div className="space-y-2">
                           <p className="text-sm font-medium">Horários em {formatarDataBr(dataSel)}</p>
-                          {horariosDisponiveis.length === 0 ? (
+                          {consultandoHorarios ? <p className="text-sm text-muted-foreground">Consultando agenda...</p> : tipoHorario === "PREFERENCIA" ? (
+                            <div className="max-w-xs space-y-2"><Label htmlFor="hora-preferencia">Horário de preferência (9h às 16h)</Label><Input id="hora-preferencia" type="time" min="09:00" max="16:00" step={1800} value={horaSel} onChange={(e) => setHoraSel(e.target.value)} /></div>
+                          ) : horariosDisponiveis.length === 0 ? (
                             <p className="text-sm text-muted-foreground">Não há horários disponíveis nesta data.</p>
                           ) : (
                             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
@@ -447,7 +543,7 @@ export function FormAgendamentoProcesso() {
                                   className={horaSel === h ? "bg-[#E56E14] hover:bg-[#CC5F10]" : ""}
                                   onClick={() => setHoraSel(h)}
                                 >
-                                  {h}
+                                  {h}{horariosReserva.includes(h) ? " · reserva" : ""}
                                 </Button>
                               ))}
                             </div>
@@ -460,7 +556,7 @@ export function FormAgendamentoProcesso() {
                         </Button>
                         <Button
                           className="bg-[#E56E14] text-white hover:bg-[#CC5F10]"
-                          disabled={!dataSel || !horaSel}
+                          disabled={!dataSel || !horaSel || consultandoHorarios}
                           onClick={() => setPasso(3)}
                         >
                           Continuar
@@ -483,13 +579,23 @@ export function FormAgendamentoProcesso() {
                           manual da CAP.
                         </div>
                       ) : null}
+                      {horariosReserva.includes(horaSel) ? <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">O responsável indicado no BI está ausente neste horário. A solicitação será encaminhada para técnico reserva.</p> : null}
+                      {tipoHorario === "PREFERENCIA" ? <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">O horário informado é uma preferência e dependerá de confirmação pela coordenadoria.</p> : null}
                       <div className="grid gap-3 rounded-lg border p-4 sm:grid-cols-2">
                         <p><span className="text-muted-foreground">Nome:</span> {nome}</p>
                         <p><span className="text-muted-foreground">E-mail:</span> {email}</p>
                         <p><span className="text-muted-foreground">CPF:</span> {cpf}</p>
                         <p><span className="text-muted-foreground">Telefone:</span> {telefone}</p>
                         <p className="sm:col-span-2"><span className="text-muted-foreground">Processo:</span> {processo}</p>
+                        {ocorrenciaId ? <p className="sm:col-span-2"><span className="text-muted-foreground">Recurso:</span> {ocorrencias.find((item) => item.id === ocorrenciaId)?.tipo === "DESPACHO" ? "Despacho indeferido" : "Comunique-se"}</p> : null}
+                        {ocorrenciaId ? <p className="sm:col-span-2"><span className="text-muted-foreground">Contexto BI:</span> {(() => { const item = ocorrencias.find((o) => o.id === ocorrenciaId); return [item?.protocolo, item?.situacao, item?.unidade, item?.responsavel].filter(Boolean).join(" · ") || "—" })()}</p> : null}
                         <p className="sm:col-span-2"><span className="text-muted-foreground">Tipo:</span> {tipoTexto}</p>
+                        {tipoTexto === TIPOS_AGENDAMENTO_PORTAL_PROCESSO[0].texto ? (
+                          <>
+                            <p className="sm:col-span-2"><span className="text-muted-foreground">Modalidade:</span> {modalidade === "ONLINE" ? "Online" : "Presencial"}</p>
+                            <p className="sm:col-span-2"><span className="text-muted-foreground">Dúvida:</span> {duvidaAtendimento}</p>
+                          </>
+                        ) : null}
                         <p className="sm:col-span-2">
                           <span className="text-muted-foreground">Relação:</span> {rotuloRelacaoInteressado(relacao)}
                         </p>
@@ -507,7 +613,7 @@ export function FormAgendamentoProcesso() {
                           disabled={enviando}
                           onClick={() => void confirmarEnvio()}
                         >
-                          {enviando ? "Enviando..." : "Confirmar agendamento"}
+                          {enviando ? "Enviando..." : "Enviar solicitação"}
                         </Button>
                       </div>
                     </CardContent>

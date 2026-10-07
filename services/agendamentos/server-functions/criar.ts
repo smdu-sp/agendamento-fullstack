@@ -69,7 +69,8 @@ export async function criar(data: ICreateAgendamento): Promise<IRespostaAgendame
 		const statusInicial = processoTrim ? StatusAgendamento.AGENDADO : StatusAgendamento.SOLICITADO;
 		const divisaoId = await divisaoIdDoTecnico(tecnicoId ?? null);
 
-		const agendamento = await prisma.agendamento.create({
+		const agendamento = await prisma.$transaction(async (tx) => {
+		const criado = await tx.agendamento.create({
 			data: {
 				municipe: restDto.municipe ? padronizarNome(restDto.municipe) : null,
 				cpf: restDto.cpf,
@@ -85,6 +86,12 @@ export async function criar(data: ICreateAgendamento): Promise<IRespostaAgendame
 				dataFim,
 			},
 			include: INCLUDE_AGENDAMENTO,
+		});
+		await tx.eventoAgendamento.create({ data: {
+			agendamentoId: criado.id, atorId: usuario.id, tipo: 'CRIADO',
+			dados: { origem: 'INTERNO', status: statusInicial },
+		} });
+		return criado;
 		});
 
 		revalidateTag('agendamentos', 'max');

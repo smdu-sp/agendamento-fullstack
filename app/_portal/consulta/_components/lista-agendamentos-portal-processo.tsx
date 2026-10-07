@@ -117,7 +117,10 @@ export function ListaAgendamentosPortalProcesso() {
                   <p className="font-medium">{row.processo || "—"}</p>
                   <p className="text-muted-foreground">{formatarDataHoraSaoPaulo(row.dataHora, true)}</p>
                   <p>{row.tipoAgendamento?.texto}</p>
+                  {row.modalidade ? <p>Modalidade: {row.modalidade === "ONLINE" ? "Online" : "Presencial"}</p> : null}
                   <p>{rotuloStatusAgendamentoPortal({ status: row.status, conferenciaCapStatus: row.conferenciaCapStatus })}</p>
+                  {row.modalidade === "PRESENCIAL" && row.localAtendimento ? <p>Local: {row.localAtendimento}{row.sala ? ` · Sala: ${row.sala}` : ""}</p> : null}
+                  {row.modalidade === "PRESENCIAL" && row.orientacaoAcesso ? <p>{row.orientacaoAcesso}</p> : null}
                   {row.observacaoCap ? (
                     <p className="mt-2 text-amber-800">Resposta da CAP: {row.observacaoCap}</p>
                   ) : null}
@@ -126,6 +129,7 @@ export function ListaAgendamentosPortalProcesso() {
                       Entrar na reunião
                     </a>
                   ) : null}
+                  {row.teamsSyncPendente ? <p className="mt-2 text-amber-800">Atualização da reunião pendente.</p> : null}
                   {podeCancelar(row) ? (
                     <Button className="mt-3 w-full" variant="outline" onClick={() => setCancelando(row)}>
                       Cancelar
@@ -169,6 +173,9 @@ export function ListaAgendamentosPortalProcesso() {
                       <TableCell className="max-w-[16rem] text-sm">{row.tipoAgendamento?.texto || "—"}</TableCell>
                       <TableCell className="text-sm">{rotuloRelacaoInteressado(row.relacaoInteressado)}</TableCell>
                       <TableCell className="text-sm">
+                        {row.modalidade ? <p>{row.modalidade === "ONLINE" ? "Online" : "Presencial"}</p> : null}
+                        {row.modalidade === "PRESENCIAL" && row.localAtendimento ? <p>Local: {row.localAtendimento}{row.sala ? ` · Sala: ${row.sala}` : ""}</p> : null}
+                        {row.modalidade === "PRESENCIAL" && row.orientacaoAcesso ? <p>{row.orientacaoAcesso}</p> : null}
                         {rotuloStatusAgendamentoPortal({
                           status: row.status,
                           conferenciaCapStatus: row.conferenciaCapStatus,
@@ -178,6 +185,7 @@ export function ListaAgendamentosPortalProcesso() {
                         ) : null}
                       </TableCell>
                       <TableCell className="text-right">
+                        {row.teamsSyncPendente ? <span className="mr-2 text-xs text-amber-800">Teams pendente</span> : null}
                         {row.teamsJoinUrl && row.status === "AGENDADO" ? (
                           <Button asChild size="sm" variant="secondary" className="mr-2">
                             <a href={row.teamsJoinUrl} target="_blank" rel="noreferrer">Reunião</a>

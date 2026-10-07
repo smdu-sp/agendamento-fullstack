@@ -44,7 +44,7 @@ export async function encaminharConferenciaCap(
 	dados: { coordenadoriaId: string; divisaoId?: string | null; processo?: string | null },
 ) {
 	try {
-		await requireCap();
+		const usuarioCap = await requireCap();
 		const ag = await prisma.agendamento.findUnique({
 			where: { id },
 			select: { id: true, conferenciaCapStatus: true, origemPortalProcesso: true, status: true },
@@ -76,8 +76,9 @@ export async function encaminharConferenciaCap(
 		}
 
 		const processo = dados.processo?.trim();
-		const atualizado = await prisma.agendamento.update({
-			where: { id },
+		const atualizado = await prisma.$transaction(async (tx) => {
+			const alterado = await tx.agendamento.updateMany({
+			where: { id, status: StatusAgendamento.SOLICITADO, conferenciaCapStatus: ConferenciaCapStatus.AGUARDANDO },
 			data: {
 				coordenadoriaId: coordenadoria.id,
 				divisaoId,
@@ -85,7 +86,13 @@ export async function encaminharConferenciaCap(
 				...(processo ? { processo } : {}),
 				resumo: `Encaminhado pela CAP à coordenadoria ${coordenadoria.sigla}.`,
 			},
-			include: INCLUDE_AGENDAMENTO,
+			});
+			if (!alterado.count) throw new Error('Solicitação já analisada.');
+			await tx.eventoAgendamento.create({ data: {
+				agendamentoId: id, atorId: usuarioCap.id, tipo: 'ENCAMINHADO_CAP',
+				dados: { coordenadoriaId: coordenadoria.id, divisaoId, processo: processo || null },
+			} });
+			return tx.agendamento.findUniqueOrThrow({ where: { id }, include: INCLUDE_AGENDAMENTO });
 		});
 		revalidateTag("agendamentos", 'max');
 		return { ok: true as const, error: null, data: atualizado, status: 200 };
@@ -99,7 +106,7 @@ export async function encaminharConferenciaCap(
 
 export async function recusarConferenciaCap(id: string, observacao: string) {
 	try {
-		await requireCap();
+		const usuarioCap = await requireCap();
 		const texto = observacao.trim();
 		if (texto.length < 5) {
 			return {
@@ -120,16 +127,23 @@ export async function recusarConferenciaCap(id: string, observacao: string) {
 			return { ok: false as const, error: "Esta solicitação já foi analisada.", data: null, status: 400 };
 		}
 
-		const atualizado = await prisma.agendamento.update({
-			where: { id },
+		const atualizado = await prisma.$transaction(async (tx) => {
+			const alterado = await tx.agendamento.updateMany({
+			where: { id, status: StatusAgendamento.SOLICITADO, conferenciaCapStatus: ConferenciaCapStatus.AGUARDANDO },
 			data: {
 				status: StatusAgendamento.CANCELADO,
 				conferenciaCapStatus: ConferenciaCapStatus.NAO_ENCONTRADO,
 				observacaoCap: texto,
 				motivoCancelamento: texto,
 				canceladoEm: new Date(),
+				canceladoPorId: usuarioCap.id,
 			},
-			include: INCLUDE_AGENDAMENTO,
+			});
+			if (!alterado.count) throw new Error('Solicitação já analisada.');
+			await tx.eventoAgendamento.create({ data: {
+				agendamentoId: id, atorId: usuarioCap.id, tipo: 'CANCELADO', dados: { origem: 'CAP', motivo: texto },
+			} });
+			return tx.agendamento.findUniqueOrThrow({ where: { id }, include: INCLUDE_AGENDAMENTO });
 		});
 		revalidateTag("agendamentos", 'max');
 		return { ok: true as const, error: null, data: atualizado, status: 200 };

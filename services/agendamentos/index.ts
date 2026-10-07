@@ -31,6 +31,7 @@ export {
   cancelarReuniaoTeams,
   sincronizarPresenca,
   validarProcessoPortal,
+  consultarHorariosPortalProcesso,
   criarSolicitacaoPortalProcesso,
   listarAgendamentosPortalProcesso,
   cancelarAgendamentoPortalProcesso,

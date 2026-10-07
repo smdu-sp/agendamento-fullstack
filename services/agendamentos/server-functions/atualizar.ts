@@ -23,7 +23,9 @@ import {
 	padronizarNome,
 	usuarioPodeSerTecnicoAtribuido,
 } from '@/lib/agendamentos-core';
-import { criarReuniaoTeamsSePossivel } from '@/lib/agendamentos-teams';
+import { criarReuniaoTeamsSePossivel, sincronizarReuniaoTeamsPendente } from '@/lib/agendamentos-teams';
+import { bloquearTecnicos, exigirSlotLivre } from '@/lib/agenda-tecnicos';
+import { statusTerminal, validarTransicaoAgendamento } from '@/lib/agendamento-transicoes';
 
 export async function atualizar(id: string, data: IUpdateAgendamento): Promise<IRespostaAgendamento> {
 	const usuarioLogado = await requireUsuarioOuRedirect();
@@ -37,15 +39,38 @@ export async function atualizar(id: string, data: IUpdateAgendamento): Promise<I
 				coordenadoriaId: true,
 				status: true,
 				dataHora: true,
+				dataFim: true,
 				processo: true,
 				tecnicoId: true,
 				teamsEventId: true,
+				modalidade: true,
+				localAtendimento: true,
 				origemPortalProcesso: true,
+				encaminhadoReservaEm: true,
 				tipoAgendamento: { select: { texto: true } },
 			},
 		});
 		if (!agendamentoAtual) {
 			return { ok: false, error: 'Agendamento não encontrado.', data: null, status: 404 };
+		}
+		if (usuarioLogado.permissao === 'TEC' && usuarioLogado.permissaoReal !== 'DEV') {
+			if (agendamentoAtual.tecnicoId !== usuarioLogado.id) {
+				throw new AuthzError('Você só pode atualizar seus próprios atendimentos.', 403);
+			}
+			const campos = Object.entries(data).filter(([, valor]) => valor !== undefined).map(([chave]) => chave);
+			if (campos.some((campo) => !['status', 'motivoNaoAtendimentoId'].includes(campo))) {
+				throw new AuthzError('Técnicos só podem registrar o resultado do próprio atendimento.', 403);
+			}
+			if (data.status && data.status !== StatusAgendamento.ATENDIDO && data.status !== StatusAgendamento.NAO_REALIZADO && data.status !== StatusAgendamento.CONCLUIDO) {
+				throw new AuthzError('Resultado de atendimento inválido para o técnico.', 403);
+			}
+		}
+		if (data.status) validarTransicaoAgendamento(agendamentoAtual.status, data.status as StatusAgendamento);
+		if (statusTerminal(agendamentoAtual.status) && Object.values(data).some((valor) => valor !== undefined)) {
+			throw new Error('Agendamento finalizado não pode ser alterado.');
+		}
+		if (data.status === StatusAgendamento.CANCELADO && (data.motivoCancelamento?.trim().length ?? 0) < 5) {
+			throw new Error('Informe o motivo do cancelamento (mínimo de 5 caracteres).');
 		}
 
 		const ehPFouCoord =
@@ -104,13 +129,26 @@ export async function atualizar(id: string, data: IUpdateAgendamento): Promise<I
 			processo: data.processo,
 			resumo: data.resumo,
 			email: data.email,
+			localAtendimento: data.localAtendimento?.trim(),
+			sala: data.sala?.trim(),
+			orientacaoAcesso: data.orientacaoAcesso?.trim(),
 			coordenadoriaId: data.coordenadoriaId,
 			motivoNaoAtendimentoId: data.motivoNaoAtendimentoId,
 			status: data.status,
+			motivoCancelamento: data.status === StatusAgendamento.CANCELADO ? data.motivoCancelamento?.trim() : undefined,
+			canceladoEm: data.status === StatusAgendamento.CANCELADO ? new Date() : undefined,
+			canceladoPorId: data.status === StatusAgendamento.CANCELADO ? usuarioLogado.id : undefined,
 			tecnicoRF: data.tecnicoRF,
 			municipe: data.municipe ? padronizarNome(data.municipe) : undefined,
 			tecnicoId,
 		};
+		if (
+			data.status === StatusAgendamento.AGENDADO &&
+			agendamentoAtual.modalidade === 'PRESENCIAL' &&
+			!(data.localAtendimento?.trim() || agendamentoAtual.localAtendimento?.trim())
+		) {
+			return { ok: false, error: 'Informe o local antes de confirmar o atendimento presencial.', data: null, status: 400 };
+		}
 
 		if (data.dataHora) {
 			const dataHora = new Date(data.dataHora);
@@ -136,11 +174,53 @@ export async function atualizar(id: string, data: IUpdateAgendamento): Promise<I
 			dataAtualizacao.divisaoId = await divisaoIdDoTecnico(tecnicoId ?? null);
 		}
 
-		const agendamentoAtualizado = await prisma.agendamento.update({
-			data: dataAtualizacao,
-			where: { id },
-			include: INCLUDE_AGENDAMENTO,
-		});
+		const destinoTecnicoId = tecnicoId === undefined ? agendamentoAtual.tecnicoId : tecnicoId;
+		const movimentaReserva = !!destinoTecnicoId &&
+			(tecnicoId !== undefined || !!data.dataHora || !!data.dataFim || data.status === StatusAgendamento.AGENDADO);
+		const agendamentoAtualizado = await prisma.$transaction(async (tx) => {
+				await bloquearTecnicos(tx, [agendamentoAtual.tecnicoId, destinoTecnicoId].filter((v): v is string => !!v));
+				await tx.$queryRaw`SELECT id FROM agendamentos WHERE id = ${id} FOR UPDATE`;
+				const atual = await tx.agendamento.findUnique({ where: { id }, select: {
+					tecnicoId: true, dataHora: true, dataFim: true, status: true, modalidade: true,
+				} });
+				if (!atual) throw new Error('Agendamento não encontrado.');
+				if (atual.tecnicoId !== agendamentoAtual.tecnicoId ||
+					atual.dataHora.getTime() !== agendamentoAtual.dataHora.getTime() ||
+					atual.status !== agendamentoAtual.status) {
+					throw new Error('O agendamento foi alterado por outra pessoa. Atualize a página.');
+				}
+				if (data.status) validarTransicaoAgendamento(atual.status, data.status as StatusAgendamento);
+				const inicio = data.dataHora ? new Date(data.dataHora) : atual.dataHora;
+				const fim = data.dataFim ? new Date(data.dataFim) :
+					(data.dataHora ? dataAtualizacao.dataFim as Date : atual.dataFim ?? calcularDataFim(inicio));
+				if (movimentaReserva && atual.modalidade && data.status !== StatusAgendamento.CANCELADO && data.status !== StatusAgendamento.NAO_REALIZADO) {
+					await exigirSlotLivre(tx, destinoTecnicoId, inicio, fim, atual.modalidade!, id);
+				}
+				if (agendamentoAtual.teamsEventId && (atual.tecnicoId !== destinoTecnicoId ||
+					atual.dataHora.getTime() !== inicio.getTime() || !!data.dataFim || !!data.email || !!data.municipe ||
+					!!data.coordenadoriaId || data.status === StatusAgendamento.CANCELADO)) {
+					dataAtualizacao.teamsSyncPendente = true;
+					dataAtualizacao.teamsSyncVersao = { increment: 1 };
+					dataAtualizacao.teamsSyncTentativas = 0;
+				}
+				const atualizado = await tx.agendamento.update({ data: dataAtualizacao, where: { id }, include: INCLUDE_AGENDAMENTO });
+				if (atual.tecnicoId !== destinoTecnicoId || atual.dataHora.getTime() !== inicio.getTime()) {
+					await tx.eventoAgendamento.create({ data: {
+						agendamentoId: id, atorId: usuarioLogado.id,
+						tipo: agendamentoAtual.encaminhadoReservaEm && agendamentoAtual.tecnicoId === null && destinoTecnicoId
+							? 'ATRIBUIDO_RESERVA' : 'REATRIBUIDO_OU_REMARCADO',
+						dados: { tecnicoAnteriorId: atual.tecnicoId, tecnicoNovoId: destinoTecnicoId,
+							horarioAnterior: atual.dataHora.toISOString(), horarioNovo: inicio.toISOString() },
+					} });
+				}
+				if (data.status && data.status !== atual.status) {
+					await tx.eventoAgendamento.create({ data: {
+						agendamentoId: id, atorId: usuarioLogado.id, tipo: 'STATUS_ALTERADO',
+						dados: { anterior: atual.status, novo: data.status, motivo: data.motivoCancelamento?.trim() ?? null },
+					} });
+				}
+				return atualizado;
+			});
 
 		const tipoPreArthur =
 			(agendamentoAtual.tipoAgendamento?.texto ?? '').trim() === PRE_PROJETO_TIPO_AGENDAMENTO_TEXTO;
@@ -150,14 +230,11 @@ export async function atualizar(id: string, data: IUpdateAgendamento): Promise<I
 			!agendamentoAtual.teamsEventId &&
 			agendamentoAtualizado.status === StatusAgendamento.SOLICITADO;
 		// Arthur Saboya: o ponto focal dispara a reunião pelo botão do chamado.
-		if (tecnicoFoiAtribuido && !tipoPreArthur) {
+		if (tecnicoFoiAtribuido && !tipoPreArthur && agendamentoAtualizado.modalidade !== 'PRESENCIAL') {
 			await criarReuniaoTeamsSePossivel(id);
-			if (agendamentoAtual.origemPortalProcesso && agendamentoAtualizado.status === StatusAgendamento.SOLICITADO) {
-				await prisma.agendamento.update({
-					where: { id },
-					data: { status: StatusAgendamento.AGENDADO },
-				});
-			}
+		}
+		if (agendamentoAtualizado.teamsSyncPendente) {
+			await sincronizarReuniaoTeamsPendente(id);
 		}
 
 		const agendamentoResposta = tecnicoFoiAtribuido
@@ -210,6 +287,9 @@ export async function atualizar(id: string, data: IUpdateAgendamento): Promise<I
 	} catch (error) {
 		if (error instanceof AuthzError) {
 			return { ok: false, error: error.message, data: null, status: error.status };
+		}
+		if (error instanceof Error && /horário não está disponível|alterado por outra pessoa|Intervalo de atendimento|Transição de|Agendamento finalizado|motivo do cancelamento/.test(error.message)) {
+			return { ok: false, error: error.message, data: null, status: 409 };
 		}
 		return { ok: false, error: 'Erro ao atualizar agendamento.', data: null, status: 500 };
 	}

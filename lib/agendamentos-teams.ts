@@ -7,6 +7,7 @@ import {
   StatusSolicitacaoPreProjeto,
 } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import { validarTransicaoAgendamento } from '@/lib/agendamento-transicoes';
 import { CHAVE_EMAIL_MARCADOR_REUNIOES } from '@/types/configuracao';
 import {
   INCLUDE_AGENDAMENTO,
@@ -29,6 +30,7 @@ import {
   graphBuscarPresencas,
   graphBuscarUsuario,
   graphCancelarEvento,
+  graphAtualizarEventoTeams,
   graphConfigurado,
   graphCriarEventoTeams,
   graphEnviarEmail,
@@ -250,6 +252,9 @@ export async function criarReuniaoTeamsSePossivel(
     include: INCLUDE_AGENDAMENTO,
   });
   if (!ag) return { ok: false, error: 'Agendamento não encontrado.' };
+  if (ag.modalidade === 'PRESENCIAL') {
+    return { ok: false, error: 'Atendimento presencial não utiliza reunião Teams.' };
+  }
 
   const tipoArthur = ehTipoArthurSaboya(ag.tipoAgendamento?.texto);
   let solicitacao = await prisma.solicitacaoPreProjetoArthurSaboya.findUnique({
@@ -284,6 +289,9 @@ export async function criarReuniaoTeamsSePossivel(
 
   const registrarEAvisar = async (msg: string, extra?: { protocolo?: string | null }) => {
     await registrarErroTeams(agendamentoId, msg);
+    await prisma.agendamento.updateMany({ where: { id: agendamentoId, status: { in: [StatusAgendamento.SOLICITADO, StatusAgendamento.AGENDADO] } }, data: {
+      teamsSyncPendente: true, teamsSyncVersao: { increment: 1 },
+    } });
     if (notificarFalha && deveAvisarFalhaAgendamento(msg)) {
       await notificarPontosFocaisFalhasReuniao([
         { ...falhaParaAviso(msg), protocolo: extra?.protocolo ?? null },
@@ -297,6 +305,7 @@ export async function criarReuniaoTeamsSePossivel(
   }
   if (
     ag.status === StatusAgendamento.CANCELADO ||
+    ag.status === StatusAgendamento.CONCLUIDO ||
     ag.status === StatusAgendamento.ATENDIDO ||
     ag.status === StatusAgendamento.NAO_REALIZADO
   ) {
@@ -369,6 +378,7 @@ export async function criarReuniaoTeamsSePossivel(
 
   try {
     const evento = await graphCriarEventoTeams({
+      transactionId: agendamentoId,
       organizerEmail: organizer,
       assunto,
       corpoHtml: corpoHtmlCondicoesAtendimentoTecnicoOutlook(dataHoraLabel),
@@ -377,7 +387,14 @@ export async function criarReuniaoTeamsSePossivel(
       participantes,
     });
 
-    await prisma.agendamento.update({
+    await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM agendamentos WHERE id = ${agendamentoId} FOR UPDATE`;
+      const atual = await tx.agendamento.findUniqueOrThrow({ where: { id: agendamentoId }, select: {
+        status: true, teamsEventId: true, teamsSyncVersao: true,
+      } });
+      if (atual.teamsEventId) return;
+      const podeAgendar = atual.status === StatusAgendamento.SOLICITADO || atual.status === StatusAgendamento.AGENDADO;
+      const alterado = await tx.agendamento.update({
       where: { id: agendamentoId },
       data: {
         teamsEventId: evento.eventId,
@@ -385,8 +402,17 @@ export async function criarReuniaoTeamsSePossivel(
         teamsMeetingId: evento.meetingId,
         teamsOrganizerEmail: organizer,
         teamsUltimoErro: null,
-        status: StatusAgendamento.AGENDADO,
+        ...(podeAgendar ? { status: StatusAgendamento.AGENDADO,
+          teamsSyncPendente: atual.teamsSyncVersao === ag.teamsSyncVersao ? false : true,
+        } : { teamsSyncPendente: true }),
       },
+      });
+      void alterado;
+      if (atual.status === StatusAgendamento.SOLICITADO) {
+        await tx.eventoAgendamento.create({ data: {
+          agendamentoId, tipo: 'STATUS_ALTERADO', dados: { anterior: atual.status, novo: StatusAgendamento.AGENDADO, origem: 'TEAMS' },
+        } });
+      }
     });
     if (ehArthur) {
       await marcarSolicitacaoArthurAgendada(agendamentoId, ag.processo, ag.dataHora);
@@ -445,6 +471,81 @@ export async function agendarReunioesEmLote(
   return { agendadas, falhas };
 }
 
+/** Reprocessa a intenção persistida sem manter transação aberta durante o Graph. */
+export async function sincronizarReuniaoTeamsPendente(agendamentoId: string): Promise<ResultadoTeams> {
+  const agora = new Date();
+  const claim = await prisma.agendamento.updateMany({ where: {
+    id: agendamentoId, teamsSyncPendente: true,
+    OR: [{ teamsSyncEmProcessamentoAte: null }, { teamsSyncEmProcessamentoAte: { lt: agora } }],
+  }, data: {
+    teamsSyncEmProcessamentoAte: new Date(agora.getTime() + 5 * 60_000),
+    teamsSyncTentativas: { increment: 1 },
+  } });
+  if (!claim.count) return { ok: false, error: 'Sincronização já processada ou em andamento.' };
+
+  const ag = await prisma.agendamento.findUniqueOrThrow({ where: { id: agendamentoId }, include: INCLUDE_AGENDAMENTO });
+  const versao = ag.teamsSyncVersao;
+  try {
+    if (ag.status === StatusAgendamento.CANCELADO) {
+      if (ag.teamsEventId) {
+        const organizer = ag.teamsOrganizerEmail || await obterEmailMarcadorReunioes();
+        if (!organizer) throw new Error('Organizador Teams não configurado.');
+        await graphCancelarEvento(organizer, ag.teamsEventId, ag.motivoCancelamento || 'Atendimento cancelado.');
+      }
+    } else if (ag.modalidade === 'PRESENCIAL') {
+      if (ag.teamsEventId) throw new Error('Atendimento presencial possui reunião Teams; corrija a divergência.');
+    } else if (!ag.teamsEventId) {
+      const resultado = await criarReuniaoTeamsSePossivel(agendamentoId, { notificarFalha: false });
+      if (!resultado.ok) throw new Error(resultado.error || 'Falha ao criar reunião Teams.');
+    } else {
+      const organizer = ag.teamsOrganizerEmail || await obterEmailMarcadorReunioes();
+      if (!organizer) throw new Error('Organizador Teams não configurado.');
+      const participantes: GraphAttendee[] = [];
+      if (ag.tecnico?.email) participantes.push({ email: ag.tecnico.email, nome: ag.tecnico.nome });
+      if (ag.email) participantes.push({ email: ag.email, nome: ag.municipe || undefined });
+      if (ag.coordenadoria?.email) participantes.push({ email: ag.coordenadoria.email, nome: ag.coordenadoria.sigla });
+      if (ehTipoArthurSaboya(ag.tipoAgendamento?.texto)) {
+        const solicitacao = await prisma.solicitacaoPreProjetoArthurSaboya.findUnique({
+          where: { agendamentoId }, select: { tecnicoArthur: { select: { email: true, nome: true } } },
+        });
+        if (solicitacao?.tecnicoArthur?.email) participantes.push({ email: solicitacao.tecnicoArthur.email, nome: solicitacao.tecnicoArthur.nome });
+        participantes.push({ email: EMAIL_SABOYA_ATENDIMENTO, nome: 'Sala Arthur Saboya' });
+      }
+      await graphAtualizarEventoTeams({
+        organizerEmail: organizer, eventId: ag.teamsEventId,
+        inicio: ag.dataHora, fim: ag.dataFim ?? calcularDataFim(ag.dataHora, 60), participantes,
+      });
+    }
+    await prisma.agendamento.updateMany({ where: { id: agendamentoId, teamsSyncVersao: versao }, data: {
+      teamsSyncPendente: false, teamsUltimoErro: null, teamsSyncEmProcessamentoAte: null, teamsSyncTentativas: 0,
+    } });
+    await prisma.agendamento.updateMany({ where: { id: agendamentoId, teamsSyncVersao: { not: versao } }, data: {
+      teamsSyncEmProcessamentoAte: null,
+    } });
+    return { ok: true };
+  } catch (error) {
+    const mensagem = error instanceof Error ? error.message : 'Falha ao sincronizar reunião Teams.';
+    await prisma.agendamento.update({ where: { id: agendamentoId }, data: {
+      teamsUltimoErro: mensagem, teamsSyncEmProcessamentoAte: null,
+    } });
+    return { ok: false, error: mensagem };
+  }
+}
+
+export async function sincronizarReunioesTeamsPendentes(limite = 20): Promise<{ processadas: number; falhas: number }> {
+  const agora = new Date();
+  const pendentes = await prisma.agendamento.findMany({ where: {
+    teamsSyncPendente: true, teamsSyncTentativas: { lt: 5 },
+    OR: [{ teamsSyncEmProcessamentoAte: null }, { teamsSyncEmProcessamentoAte: { lt: agora } }],
+  }, select: { id: true }, orderBy: { atualizadoEm: 'asc' }, take: Math.max(1, Math.min(100, limite)) });
+  let falhas = 0;
+  for (const pendente of pendentes) {
+    const resultado = await sincronizarReuniaoTeamsPendente(pendente.id);
+    if (!resultado.ok) falhas++;
+  }
+  return { processadas: pendentes.length, falhas };
+}
+
 export async function cancelarReuniaoTeamsInterno(
   agendamentoId: string,
   motivo: string,
@@ -468,29 +569,31 @@ export async function cancelarReuniaoTeamsInterno(
     return { ok: false, error: 'Esta reunião já está cancelada.' };
   }
 
-  if (ag.teamsEventId) {
-    const organizer = ag.teamsOrganizerEmail || (await obterEmailMarcadorReunioes());
-    if (organizer && graphConfigurado()) {
-      try {
-        await graphCancelarEvento(organizer, ag.teamsEventId, motivoTrim);
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : 'Falha ao cancelar no Teams.';
-        console.error('[Teams] cancelar reunião:', msg);
-        return { ok: false, error: `Não foi possível cancelar no Teams: ${msg}` };
-      }
-    }
-  }
+  try { validarTransicaoAgendamento(ag.status, StatusAgendamento.CANCELADO); }
+  catch { return { ok: false, error: 'Este atendimento não pode mais ser cancelado.' }; }
 
-  await prisma.agendamento.update({
-    where: { id: agendamentoId },
+  await prisma.$transaction(async (tx) => {
+    const alterado = await tx.agendamento.updateMany({
+    where: { id: agendamentoId, status: ag.status },
     data: {
       status: StatusAgendamento.CANCELADO,
       motivoCancelamento: motivoTrim,
       canceladoEm: new Date(),
       canceladoPorId: usuarioId || null,
       teamsUltimoErro: null,
+      teamsSyncPendente: !!ag.teamsEventId,
+      teamsSyncVersao: { increment: 1 },
+      teamsSyncTentativas: 0,
     },
+    });
+    if (!alterado.count) throw new Error('O agendamento foi alterado por outra pessoa.');
+    await tx.eventoAgendamento.create({ data: {
+      agendamentoId, atorId: usuarioId || null, tipo: 'CANCELADO',
+      dados: { statusAnterior: ag.status, motivo: motivoTrim, origem: 'TEAMS' },
+    } });
   });
+  if (!ag.teamsEventId) return { ok: true };
+  await sincronizarReuniaoTeamsPendente(agendamentoId);
   return { ok: true };
 }
 
@@ -520,6 +623,7 @@ export async function sincronizarPresencaInterno(
 
   if (
     ag.status === StatusAgendamento.CANCELADO ||
+    ag.status === StatusAgendamento.CONCLUIDO ||
     ag.status === StatusAgendamento.ATENDIDO ||
     ag.status === StatusAgendamento.NAO_REALIZADO
   ) {
@@ -530,6 +634,10 @@ export async function sincronizarPresencaInterno(
       temPresenca: (ag.presencasReuniao?.length ?? 0) > 0,
       agendamento: ag as unknown as IAgendamento,
     };
+  }
+
+  if (ag.status !== StatusAgendamento.AGENDADO) {
+    return { ok: false, error: 'Somente atendimentos agendados podem ter o resultado sincronizado.', statusAlterado: false, aguardandoRelatorio: false, temPresenca: false };
   }
 
   if (!reuniaoJaTerminou(ag.dataFim, ag.dataHora)) {
@@ -617,8 +725,9 @@ export async function sincronizarPresencaInterno(
     // Já saímos cedo se o status era ATENDIDO/NAO_REALIZADO/CANCELADO.
     const statusAlterado = true;
 
-    const atualizado = await prisma.agendamento.update({
-      where: { id: agendamentoId },
+    const atualizado = await prisma.$transaction(async (tx) => {
+      const alterado = await tx.agendamento.updateMany({
+      where: { id: agendamentoId, status: StatusAgendamento.AGENDADO },
       data: {
         status: novoStatus,
         presencaSincronizadaEm: new Date(),
@@ -627,7 +736,12 @@ export async function sincronizarPresencaInterno(
           ? { motivoNaoAtendimentoId: null }
           : {}),
       },
-      include: INCLUDE_AGENDAMENTO,
+      });
+      if (!alterado.count) throw new Error('Status alterado durante a sincronização de presença.');
+      await tx.eventoAgendamento.create({ data: {
+        agendamentoId, tipo: 'STATUS_ALTERADO', dados: { anterior: StatusAgendamento.AGENDADO, novo: novoStatus, origem: 'TEAMS' },
+      } });
+      return tx.agendamento.findUniqueOrThrow({ where: { id: agendamentoId }, include: INCLUDE_AGENDAMENTO });
     });
 
     return {
@@ -687,13 +801,19 @@ async function finalizarSemRelatorio(
     };
   }
 
-  const atualizado = await prisma.agendamento.update({
-    where: { id: agendamentoId },
+  const atualizado = await prisma.$transaction(async (tx) => {
+    const alterado = await tx.agendamento.updateMany({
+    where: { id: agendamentoId, status: StatusAgendamento.AGENDADO },
     data: {
       status: StatusAgendamento.NAO_REALIZADO,
       presencaSincronizadaEm: new Date(),
     },
-    include: INCLUDE_AGENDAMENTO,
+    });
+    if (!alterado.count) throw new Error('Status alterado durante a sincronização de presença.');
+    await tx.eventoAgendamento.create({ data: {
+      agendamentoId, tipo: 'STATUS_ALTERADO', dados: { anterior: StatusAgendamento.AGENDADO, novo: StatusAgendamento.NAO_REALIZADO, origem: 'TEAMS' },
+    } });
+    return tx.agendamento.findUniqueOrThrow({ where: { id: agendamentoId }, include: INCLUDE_AGENDAMENTO });
   });
   return {
     ok: true,
