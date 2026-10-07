@@ -8,7 +8,6 @@ import { IAgendamento } from "@/types/agendamento";
 import { AppPageShell } from "@/components/layout/app-page-shell";
 import ImportarPlanilha from "./_components/importar-planilha";
 import ListaAgendamentos from "./_components/lista-agendamentos";
-import { AgendaTecnicosPanel } from "./_components/agenda-tecnicos-panel";
 
 function hojeStr(): string {
   const d = new Date();
@@ -140,7 +139,6 @@ async function Home({
         dataFim={dataFim}
         ultimaImportacao={ultimaImportacao}
       />
-      <AgendaTecnicosPanel />
     </AppPageShell>
   );
 }

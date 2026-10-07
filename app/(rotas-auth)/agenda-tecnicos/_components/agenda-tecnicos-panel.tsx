@@ -28,7 +28,7 @@ const horario = (valor: Date | string) => new Date(valor).toISOString().slice(0,
 
 export function AgendaTecnicosPanel() {
   const permissao = useEffectivePermissao();
-  const podeGerenciar = ["ADM", "DEV", "PONTO_FOCAL", "COORDENADOR"].includes(String(permissao));
+  const podeGerenciar = ["ADM", "DEV", "PONTO_FOCAL", "COORDENADOR", "DIRETOR"].includes(String(permissao));
   const [tecnicos, setTecnicos] = useState<Tecnicos>([]);
   const [tecnicoId, setTecnicoId] = useState("");
   const [agenda, setAgenda] = useState<Agenda>({ regras: [], ausencias: [] });
@@ -106,7 +106,7 @@ export function AgendaTecnicosPanel() {
     }, "Ausência cadastrada.");
   }
 
-  return <Card className="mt-8">
+  return <Card>
     <CardHeader><CardTitle>Agenda dos técnicos</CardTitle></CardHeader>
     <CardContent className="space-y-5">
       {erro ? <p role="alert" className="text-sm text-destructive">{erro}</p> : null}

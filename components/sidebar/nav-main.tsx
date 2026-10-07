@@ -18,6 +18,7 @@ import {
   HelpCircle,
   ClipboardList,
   CalendarSearch,
+  CalendarClock,
   Mail,
   Settings,
 } from "lucide-react";
@@ -236,6 +237,12 @@ export async function NavMain() {
                   <Link href="/dashboard">
                     <LayoutDashboard />
                     <span>Dashboard</span>
+                  </Link>
+                </SidebarMenuItem>
+                <SidebarMenuItem className="z-50">
+                  <Link href="/agenda-tecnicos">
+                    <CalendarClock />
+                    <span>Agenda dos técnicos</span>
                   </Link>
                 </SidebarMenuItem>
                 {!["DIRETOR"].includes(usuario.permissao.toString()) && (
