@@ -1,6 +1,6 @@
 # 10. Testes e qualidade
 
-## Testes automatizados ✅
+## Testes automatizados
 
 Testes unitários com o executor nativo do Node (`node:test` + `node:assert/strict`):
 
@@ -10,7 +10,9 @@ Testes unitários com o executor nativo do Node (`node:test` + `node:assert/stri
 | [tests/agendamento-transicoes.test.ts](../../tests/agendamento-transicoes.test.ts) | Máquina de estados ([lib/agendamento-transicoes.ts](../../lib/agendamento-transicoes.ts)) |
 | [tests/bi-elegibilidade.test.ts](../../tests/bi-elegibilidade.test.ts) | Elegibilidade de comunique-se e despacho ([lib/bi-elegibilidade.ts](../../lib/bi-elegibilidade.ts)) |
 
-### Como executar ❓
+### Como executar
+
+> **Pendente de confirmação.**
 
 Não há script `test` no [package.json](../../package.json). Como os testes são TypeScript e o projeto já tem `tsx`:
 
@@ -31,11 +33,13 @@ Sem testes automatizados:
 - fila de sincronização e presença do Teams;
 - autenticação do munícipe e redefinição de senha.
 
-## Análise estática ✅
+## Análise estática
 
 - ESLint 9 com `eslint-config-next` ([eslint.config.mjs](../../eslint.config.mjs)): `npm run lint`.
 - TypeScript em modo `strict` ([tsconfig.json](../../tsconfig.json)).
 
-## CI ❓
+## CI
+
+> **Pendente de confirmação.**
 
 Não há pipeline de integração contínua no repositório.

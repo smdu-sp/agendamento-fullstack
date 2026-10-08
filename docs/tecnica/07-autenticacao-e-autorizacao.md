@@ -2,8 +2,7 @@
 
 O sistema tem dois públicos com mecanismos independentes: **servidores** (NextAuth) e **munícipes** (JWT próprio).
 
-## Servidores ✅
-
+## Servidores
 ### Login
 
 Fluxo em [lib/auth/auth.config.ts](../../lib/auth/auth.config.ts) e [lib/auth-core.ts](../../lib/auth-core.ts):
@@ -57,7 +56,7 @@ As verificações de página usam o perfil da sessão (o real). As Server Action
 
 Escopos implementados em [services/agendamentos/query-functions/buscar-tudo.ts](../../services/agendamentos/query-functions/buscar-tudo.ts) e [lib/agendamentos-core.ts](../../lib/agendamentos-core.ts) (`escopoListaAgendamentosParaTec`).
 
-## Matriz de permissões das ações ✅
+## Matriz de permissões das ações
 
 Legenda: ● permitido · ◐ permitido com restrição · — negado. DEV passa em todas.
 
@@ -65,7 +64,7 @@ Legenda: ● permitido · ◐ permitido com restrição · — negado. DEV passa
 |---|---|---|---|---|---|---|
 | Listar / agenda do dia | ● | ◐ coord. | ◐ divisão | ◐ divisão | ◐ próprios | ● |
 | Ver detalhe por ID | ● | ● ⚠ | ● ⚠ | ● ⚠ | ● ⚠ | ● |
-| Criar agendamento interno | ● | — | — | — | — | — |
+| Criar agendamento interno (Server Action sem tela) | ● | — | — | — | — | — |
 | Cancelar agendamento (excluir) | ● | — | — | — | — | — |
 | Atualizar agendamento (atribuir, remarcar, confirmar, status) | ● | ◐ coord. | ◐ coord. | — | ◐ só resultado do próprio atendimento¹ | — |
 | Criar / cancelar reunião Teams⁴ | ● | ◐ coord. | ◐ coord. | — | — | — |
@@ -74,8 +73,8 @@ Legenda: ● permitido · ◐ permitido com restrição · — negado. DEV passa
 | Dashboard | ● | ◐ | ◐ | ◐ | — | — |
 | Agenda dos técnicos (regras/ausências) | ● | ◐ coord. | ◐ coord. | ◐ coord. | ◐ consultar a própria disponibilidade | — |
 | Conferência CAP | ● | ◐ só da CAP² | ◐ só da CAP² | — | — | — |
-| Usuários: listar, criar, editar, desativar | ● | ◐ própria divisão³ | ◐ própria divisão³ | — | ⚠ ver riscos | — |
-| Liberar acesso (`autorizar`) / listar todos os técnicos | ● | — | — | — | — | — |
+| Usuários: listar, buscar na rede, criar, editar, desativar | ● | ◐ própria divisão³ | ◐ própria divisão³ | — | ⚠ editar: ver riscos | — |
+| Reativar usuário (`autorizar`) / listar todos os técnicos | ● | — | — | — | — | — |
 | Coordenadorias, divisões: ver | ● | ● | ● | — | — | — |
 | Coordenadorias, divisões, tipos: alterar | ● | — | — | — | — | — |
 | Motivos: criar | ● | ● | ● | — | — | — |
@@ -84,7 +83,13 @@ Legenda: ● permitido · ◐ permitido com restrição · — negado. DEV passa
 
 1. TEC só altera `status` (ATENDIDO, NAO_REALIZADO, CONCLUIDO) e `motivoNaoAtendimentoId` de agendamentos em que é o técnico ([atualizar.ts](../../services/agendamentos/server-functions/atualizar.ts)).
 2. PF/COORD lotados em divisão cuja coordenadoria tem sigla `CAP` ([lib/conferencia-cap-acesso.ts](../../lib/conferencia-cap-acesso.ts)).
-3. PF/COORD só atribuem os perfis USR, PONTO_FOCAL e TEC, e o usuário fica na divisão de quem criou ([lib/usuarios-core.ts](../../lib/usuarios-core.ts)). ADM que tenta criar DEV gera ADM. Perfis Arthur Saboya são lotados automaticamente na divisão do fluxo.
+3. Regras dos usuários:
+   - **Perfis permitidos**: PF/COORD só atribuem USR, PONTO_FOCAL e TEC, e o novo usuário fica na divisão de quem criou ([lib/usuarios-core.ts](../../lib/usuarios-core.ts), [criar.ts](../../services/usuarios/server-functions/criar.ts)). O formulário também oferece Diretor e os perfis Arthur Saboya a PF/COORD ([form-usuario.tsx](../../app/(rotas-auth)/usuarios/_components/form-usuario.tsx)), mas o servidor recusa com 403.
+   - **ADM criando DEV**: o usuário é gravado como ADM.
+   - **Perfis Arthur Saboya**: são lotados automaticamente na divisão do fluxo.
+   - **Listagem**: só é filtrada pela divisão se o PF/COORD **tiver** divisão. Sem divisão, a lista não é filtrada ([usuarios/query-functions/buscar-tudo.ts](../../services/usuarios/query-functions/buscar-tudo.ts)).
+   - **Edição e desativação**: exigem que o alvo seja da mesma divisão ([atualizar.ts](../../services/usuarios/server-functions/atualizar.ts), [desativar.ts](../../services/usuarios/server-functions/desativar.ts)).
+   - **Busca na rede** (`buscarNovo`): se o login já existe e está inativo, a busca **reativa** o usuário ([buscar-novo.ts](../../services/usuarios/query-functions/buscar-novo.ts)).
 
 4. "Cancelar reunião" também **cancela o agendamento** (status `CANCELADO`), exigindo motivo com no mínimo 5 caracteres ([lib/agendamentos-teams.ts](../../lib/agendamentos-teams.ts), `cancelarReuniaoTeamsInterno`).
 
@@ -92,7 +97,7 @@ Legenda: ● permitido · ◐ permitido com restrição · — negado. DEV passa
 
 Pedidos Arthur Saboya (tela interna): DEV, ADM, TEC, ARTHUR_SABOYA, ADM_ARTHUR_SABOYA, COORDENADOR e PONTO_FOCAL ([lib/pedidos-pre-projetos-arthur-saboya-acesso.ts](../../lib/pedidos-pre-projetos-arthur-saboya-acesso.ts)). A filtragem das operações ainda ocorre no backend NestJS.
 
-## Menu por perfil ✅
+## Menu por perfil
 
 [components/sidebar/nav-main.tsx](../../components/sidebar/nav-main.tsx):
 
@@ -107,7 +112,7 @@ Pedidos Arthur Saboya (tela interna): DEV, ADM, TEC, ARTHUR_SABOYA, ADM_ARTHUR_S
 | | Coordenadorias, Divisões, Tipos de Agendamento, Motivos, Configurações, Importar Agendamentos, Importar Outlook | DEV, ADM |
 | Páginas Externas, Ferramentas DEV | Links do portal, Preview de e-mails | DEV |
 
-## Munícipes ✅
+## Munícipes
 
 - **Endpoints**: `POST /api/municipes/auth/{cadastro|login|solicitar-redefinicao-senha|redefinir-senha}` ([route.ts](../../app/api/municipes/auth/[acao]/route.ts), [lib/municipes-auth-core.ts](../../lib/municipes-auth-core.ts)).
 - **Cadastro**: nome, e-mail válido e único (normalizado em minúsculas), senha com no mínimo 6 caracteres (bcrypt, custo 10).
@@ -118,7 +123,7 @@ Pedidos Arthur Saboya (tela interna): DEV, ADM, TEC, ARTHUR_SABOYA, ADM_ARTHUR_S
   - token aleatório de 32 bytes, guardado como SHA-256, válido por 60 minutos e de uso único;
   - tokens anteriores não usados são apagados.
   - Em ambiente local o link volta na própria resposta.
-  - ❓ Em produção o link **não é enviado por e-mail por este código**. Confirmar como o munícipe recebe o link.
+  - **Pendente de confirmação**: Em produção o link **não é enviado por e-mail por este código**. Confirmar como o munícipe recebe o link.
 
 ## Observações de segurança
 

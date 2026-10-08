@@ -10,7 +10,7 @@ Gerenciar atendimentos técnicos da SMUL relacionados a processos de licenciamen
 
 Requisitos de negócio de origem: [historico/](historico/README.md) (`REQUISITOS_PORTAL_AGENDAMENTOS.md`).
 
-## Stack ✅
+## Stack
 
 | Camada | Tecnologia | Evidência |
 |---|---|---|
@@ -42,11 +42,11 @@ flowchart LR
   APP -->|leitura best-effort| SGU[(SGU - MySQL legado)]
   APP -->|bind/busca| LDAP[Active Directory]
   APP -->|reuniões, presença, e-mail| GRAPH[Microsoft Graph]
-  CRON[Agendador externo ❓] -->|POST /api/internal/teams-sync| RH
+  CRON[Agendador externo - pendente de confirmação] -->|POST /api/internal/teams-sync| RH
   APP -.->|transitório| NEST[Backend NestJS legado]
 ```
 
-## Estilo arquitetural ✅
+## Estilo arquitetural
 
 - **Monólito fullstack**: páginas, Server Actions e route handlers no mesmo processo Next.js.
 - **Camadas por convenção** (ver [02-estrutura-de-pastas.md](02-estrutura-de-pastas.md)):

@@ -4,8 +4,7 @@ As variáveis são lidas de `.env` (via `dotenv/config` em [server.ts](../../ser
 
 > Esta página lista apenas nomes e finalidades. Valores e credenciais devem ser obtidos com a equipe responsável pelo ambiente.
 
-## Variáveis usadas pelo código ✅
-
+## Variáveis usadas pelo código
 ### Aplicação
 
 | Variável | Obrigatória | Uso | Onde |
@@ -13,7 +12,7 @@ As variáveis são lidas de `.env` (via `dotenv/config` em [server.ts](../../ser
 | `PORT` | Não (padrão 3001) | Porta do custom server | [server.ts](../../server.ts) |
 | `NODE_ENV` | Definida pelos scripts | `development`/`production` | [package.json](../../package.json) |
 | `NEXT_PUBLIC_BASE_PATH` | Não | Prefixo usado em URLs do NextAuth e da API do munícipe. **O `basePath` do Next é fixo em `/agendamento`** em [next.config.ts](../../next.config.ts) | [lib/auth/auth.ts](../../lib/auth/auth.ts), [lib/api-url.ts](../../lib/api-url.ts) |
-| `NEXT_PUBLIC_PROJECT_NAME` | ❓ | Presente no modelo; uso não localizado no código | — |
+| `NEXT_PUBLIC_PROJECT_NAME` | Pendente de confirmação | Presente no modelo; uso não localizado no código | — |
 | `FRONTEND_URL` | Recomendada | URL pública para links em e-mails (redefinição de senha, avisos de falha do Teams) | [lib/municipes-auth-core.ts](../../lib/municipes-auth-core.ts), [lib/agendamentos-teams.ts](../../lib/agendamentos-teams.ts) |
 | `CORS_ORIGIN` | Não | Origens aceitas pelo Socket.IO (lista separada por vírgula) | [server.ts](../../server.ts) |
 | `ENVIRONMENT` | Não | `local` **desativa o LDAP** (qualquer senha é aceita para usuários sem senha local) e expõe o link de redefinição de senha na resposta | [lib/auth-core.ts](../../lib/auth-core.ts), [lib/municipes-auth-core.ts](../../lib/municipes-auth-core.ts) |
@@ -71,7 +70,9 @@ O e-mail da caixa organizadora **não** é variável de ambiente: fica na tabela
 
 Ver [12-migracao-nestjs.md](12-migracao-nestjs.md).
 
-## Divergências entre `example.env` e o código ❓
+## Divergências entre `example.env` e o código
+
+> **Pendente de confirmação.**
 
 | Item | Situação |
 |---|---|

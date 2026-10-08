@@ -1,6 +1,6 @@
 # 9. APIs e integrações
 
-## Route handlers (HTTP) ✅
+## Route handlers (HTTP)
 
 Todas as rotas abaixo ficam sob `/agendamento`.
 
@@ -25,7 +25,7 @@ Formato dos erros nas rotas do munícipe: `{ message }`, com status HTTP 400, 40
 | `solicitar-redefinicao-senha` | `{ email }` |
 | `redefinir-senha` | `{ token, novaSenha }` |
 
-## Server Actions ✅
+## Server Actions
 
 A maior parte da API interna são Server Actions (`'use server'`), chamadas direto pelos componentes. Todas devolvem `{ ok, error, data, status }`.
 
@@ -40,7 +40,7 @@ As Server Actions do portal recebem o **token do munícipe como primeiro parâme
 
 ## Integrações externas
 
-### LDAP / Active Directory ✅
+### LDAP / Active Directory
 
 | Uso | Detalhe | Fonte |
 |---|---|---|
@@ -49,7 +49,7 @@ As Server Actions do portal recebem o **token do munícipe como primeiro parâme
 
 ⚠ O login é colocado no filtro LDAP sem escape. Ver [riscos](11-pendencias-e-riscos.md).
 
-### Microsoft Graph ✅
+### Microsoft Graph
 
 Client credentials (`AZURE_*`); o token é guardado em memória até 60 s antes de expirar; timeout de 30 s por chamada ([lib/teams-graph.ts](../../lib/teams-graph.ts)).
 
@@ -63,15 +63,15 @@ Client credentials (`AZURE_*`); o token é guardado em memória até 60 s antes 
 
 Permissões de aplicativo: `Calendars.ReadWrite`, `OnlineMeetings.ReadWrite.All`, `OnlineMeetingArtifact.Read.All`, `Mail.Send`, mais Application Access Policy na caixa organizadora.
 
-### BI (SQL Server) ✅
+### BI (SQL Server)
 
-Leitura de comunique-se e despachos. Ver [06-banco-de-dados.md](06-banco-de-dados.md#bi-) e [portal-processos-e-bi.md](08-regras-de-negocio/portal-processos-e-bi.md). As consultas usam parâmetros (`@numero`).
+Leitura de comunique-se e despachos. Ver [06-banco-de-dados.md](06-banco-de-dados.md#bi) e [portal-processos-e-bi.md](08-regras-de-negocio/portal-processos-e-bi.md). As consultas usam parâmetros (`@numero`).
 
-### SGU (MySQL legado) ✅
+### SGU (MySQL legado)
 
-Inferência da divisão pelo login de rede, com falhas ignoradas. Ver [06-banco-de-dados.md](06-banco-de-dados.md#sgu-).
+Inferência da divisão pelo login de rede, com falhas ignoradas. Ver [06-banco-de-dados.md](06-banco-de-dados.md#sgu).
 
-### Socket.IO ✅
+### Socket.IO
 
 O custom server ([server.ts](../../server.ts)) sobe um servidor Socket.IO com CORS (`CORS_ORIGIN`) mas **sem eventos implementados**. O chat em tempo real dos pré-projetos hoje conecta no Socket.IO do backend NestJS. Ver [12-migracao-nestjs.md](12-migracao-nestjs.md).
 

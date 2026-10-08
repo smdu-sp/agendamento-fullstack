@@ -1,6 +1,6 @@
 # Ciclo de vida do agendamento
 
-## Máquina de estados ✅
+## Máquina de estados
 
 Fonte: [lib/agendamento-transicoes.ts](../../../lib/agendamento-transicoes.ts) (coberta por [tests/agendamento-transicoes.test.ts](../../../tests/agendamento-transicoes.test.ts)).
 
@@ -33,13 +33,13 @@ stateDiagram-v2
 
 | Origem | Status inicial | Regra | Fonte |
 |---|---|---|---|
-| Tela interna (ADM/DEV) | `AGENDADO` se houver processo; senão `SOLICITADO` | Duração padrão de 60 min; bloqueia duplicata processo + data/hora; recusa o tipo "Pré-projetos (Arthur Saboya)" | [criar.ts](../../../services/agendamentos/server-functions/criar.ts) |
+| Server Action `criar` (ADM/DEV). **Pendente de confirmação**: Nenhuma tela atual a utiliza | `AGENDADO` se houver processo; senão `SOLICITADO` | Duração padrão de 60 min; bloqueia duplicata processo + data/hora; recusa o tipo "Pré-projetos (Arthur Saboya)" | [criar.ts](../../../services/agendamentos/server-functions/criar.ts) |
 | Portal (munícipe) | `SOLICITADO` | Ver [portal-processos-e-bi.md](portal-processos-e-bi.md) | [lib/portal-processos-core.ts](../../../lib/portal-processos-core.ts) |
 | Planilha SMUL / Outlook | `SOLICITADO` | Ver [importacao-planilhas.md](importacao-planilhas.md) | [lib/agendamentos-import.ts](../../../lib/agendamentos-import.ts) |
 
 O nome do munícipe é padronizado (iniciais maiúsculas, preposições em minúsculas — `padronizarNome`). Nas listagens o CPF aparece mascarado (`000.***.***-00`).
 
-## Atualização ✅
+## Atualização
 
 Fonte: [services/agendamentos/server-functions/atualizar.ts](../../../services/agendamentos/server-functions/atualizar.ts).
 
@@ -70,17 +70,39 @@ Fonte: [services/agendamentos/server-functions/atualizar.ts](../../../services/a
 | Primeiro técnico atribuído a um `SOLICITADO` sem reunião, não presencial e fora do fluxo Arthur Saboya | Cria a reunião Teams automaticamente, o que muda o status para `AGENDADO` |
 | Tipo Arthur Saboya passando de `SOLICITADO` para `AGENDADO` | Solicitação vai para `AGENDAMENTO_CRIADO` e o munícipe recebe uma mensagem automática no chamado |
 
+## Ações disponíveis nas telas
+
+Fonte: [lista-agendamentos.tsx](../../../app/(rotas-auth)/_components/lista-agendamentos.tsx), [atribuir-tecnico.tsx](../../../app/(rotas-auth)/_components/atribuir-tecnico.tsx), [confirmar-atendimento.tsx](../../../app/(rotas-auth)/_components/confirmar-atendimento.tsx), [reuniao-teams-dialog.tsx](../../../app/(rotas-auth)/_components/reuniao-teams-dialog.tsx), [agendamento-detalhe-view.tsx](../../../app/(rotas-auth)/_components/agendamento-detalhe-view.tsx).
+
+| Ação na tela | Quem vê (perfil efetivo) | Condição | Server Action |
+|---|---|---|---|
+| Seletor de técnico | PF, COORD; ADM/DEV só com status ATENDIDO ou NAO_REALIZADO | Agendamento com coordenadoria e não encerrado (CANCELADO, CONCLUIDO, NAO_REALIZADO bloqueiam quando há modalidade) | `atualizar` com `tecnicoId`. Pedidos do portal com modalidade passam também `dataHora`/`dataFim` do slot escolhido (`consultarDisponibilidadeTecnico`) |
+| **Confirmar** | O técnico do agendamento (TEC, ADM, DEV ou COORD) | Status `AGENDADO` e com técnico | `atualizar` com `ATENDIDO` ou `NAO_REALIZADO` + motivo |
+| **Alterar** | O técnico do agendamento, ADM, DEV, PF, COORD | Status `ATENDIDO` | `atualizar` com `CONCLUIDO` |
+| **Agendar reunião** / **Ver reunião** | PF, COORD, ADM, DEV (ver: também quem já tem reunião) | Agendar: `SOLICITADO` com técnico | `agendarReuniaoTeams`, `cancelarReuniaoTeams`, `sincronizarPresenca` |
+| Detalhe (ícone de olho) | Todos com acesso à lista | — | `buscarPorId` |
+
+Destaque das linhas: vermelho = `importadoOutlook`; amarelo = sem técnico ou `AGENDADO`.
+
+**Pendente de confirmação**: a Server Action `atualizar` aceita, mas nenhuma tela envia:
+- `localAtendimento`, `sala`, `orientacaoAcesso`;
+- a confirmação manual (`AGENDADO`), obrigatória para atendimentos presenciais, que não usam o Teams;
+- remarcação livre de `dataHora`;
+- cancelamento pelo status.
+
+Hoje os atendimentos **presenciais** do portal não têm caminho na interface para chegar a `AGENDADO`.
+
 ## Cancelamento
 
 | Quem | Como | Regra |
 |---|---|---|
-| ADM/DEV | Ação "excluir" ([excluir.ts](../../../services/agendamentos/server-functions/excluir.ts)) | Não apaga o registro: muda para `CANCELADO` com o motivo "Cancelado pela administração." e cancela a reunião Teams, se houver |
-| PF/COORD/ADM/DEV | "Cancelar reunião" ([cancelar-reuniao-teams.ts](../../../services/agendamentos/server-functions/cancelar-reuniao-teams.ts)) | Motivo com no mínimo 5 caracteres; cancela o agendamento e o evento no Teams |
-| Edição (status `CANCELADO`) | [atualizar.ts](../../../services/agendamentos/server-functions/atualizar.ts) | Motivo com no mínimo 5 caracteres |
+| ADM/DEV | Server Action `excluir` ([excluir.ts](../../../services/agendamentos/server-functions/excluir.ts)). **Pendente de confirmação**: nenhuma tela atual a chama | Não apaga o registro: muda para `CANCELADO` com o motivo "Cancelado pela administração." e cancela a reunião Teams, se houver |
+| PF/COORD/ADM/DEV | Botão "Cancelar reunião" ([reuniao-teams-dialog.tsx](../../../app/(rotas-auth)/_components/reuniao-teams-dialog.tsx) → [cancelar-reuniao-teams.ts](../../../services/agendamentos/server-functions/cancelar-reuniao-teams.ts)), visível se houver reunião ou o status for `AGENDADO` | Motivo com no mínimo 5 caracteres; cancela o agendamento e o evento no Teams |
+| Edição (status `CANCELADO`) | [atualizar.ts](../../../services/agendamentos/server-functions/atualizar.ts). Nenhuma tela envia esse status | Motivo com no mínimo 5 caracteres |
 | Munícipe | Portal ([portal-processos.ts](../../../services/agendamentos/server-functions/portal-processos.ts)) | Se já estiver `AGENDADO`, só com **24 h ou mais** de antecedência |
 | CAP | Recusa na conferência | Ver [conferencia-cap.md](conferencia-cap.md) |
 
-## Listagem ✅
+## Listagem
 
 [buscar-tudo.ts](../../../services/agendamentos/query-functions/buscar-tudo.ts):
 
@@ -91,7 +113,7 @@ Fonte: [services/agendamentos/server-functions/atualizar.ts](../../../services/a
 - A página inicial mostra, por padrão, só **o dia de hoje** ([app/(rotas-auth)/page.tsx](../../../app/(rotas-auth)/page.tsx)).
 - O escopo por perfil está em [07-autenticacao-e-autorizacao.md](../07-autenticacao-e-autorizacao.md#perfis).
 
-## Dashboard ✅
+## Dashboard
 
 [dashboard.ts](../../../services/agendamentos/query-functions/dashboard.ts):
 

@@ -1,6 +1,6 @@
 # 5. Implantação
 
-## Imagem Docker ✅
+## Imagem Docker
 
 [Dockerfile](../../Dockerfile) em três estágios sobre `node:22-alpine` (imagem base configurável por `ARG BASE_IMAGE`):
 
@@ -12,7 +12,7 @@ O modo `output: "standalone"` **não** é usado porque é incompatível com o cu
 
 O schema Prisma declara `binaryTargets = ["native", "linux-musl-openssl-3.0.x"]` para rodar no Alpine.
 
-## Docker Compose ✅
+## Docker Compose
 
 [docker-compose.yml](../../docker-compose.yml):
 
@@ -38,7 +38,9 @@ Sempre aplique com `prisma migrate deploy` (o Compose já faz isso na subida). H
 - O Socket.IO compartilha a porta HTTP. O proxy precisa permitir upgrade para WebSocket.
 - `FRONTEND_URL` deve apontar para a URL pública, usada nos links de e-mail.
 
-## Tarefa agendada obrigatória ❓
+## Tarefa agendada obrigatória
+
+> **Pendente de confirmação.**
 
 A fila de sincronização do Teams só é processada quando alguém chama:
 
@@ -56,11 +58,13 @@ Cada chamada processa até 20 agendamentos pendentes ([route.ts](../../app/api/i
 - [ ] `DATABASE_URL`, `BI_DATABASE_URL` e `SGU_DATABASE_URL` com rede liberada
 - [ ] LDAP acessível a partir do container
 - [ ] Aplicação Azure com permissões e Application Access Policy na caixa organizadora
-- [ ] Caixa organizadora configurada em **Configurações** e testada com "Testar conexão"
+- [ ] Caixa organizadora configurada em **Configurações** e testada com "Testar Graph"
 - [ ] Cron do `teams-sync` ativo
 - [ ] Proxy com `/agendamento` e suporte a WebSocket
-- [ ] Backup do volume/banco MySQL ❓ (não definido no repositório)
+- [ ] Backup do volume/banco MySQL (pendente de confirmação: não definido no repositório)
 
-## Ambiente de produção ❓
+## Ambiente de produção
+
+> **Pendente de confirmação.**
 
 Servidor, orquestração, domínio público, CI/CD e política de backup não estão descritos no repositório. Completar esta seção com a equipe de infraestrutura.

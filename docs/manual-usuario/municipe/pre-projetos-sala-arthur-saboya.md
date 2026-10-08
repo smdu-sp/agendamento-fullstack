@@ -20,9 +20,9 @@ A equipe responde em **até 5 dias úteis**. Ao enviar, você concorda com o tra
 2. Clique em **Visualizar** no protocolo desejado.
 3. No chamado você pode:
    - ler as respostas da equipe e enviar novas mensagens;
-   - **marcar como solucionado**, quando a dúvida estiver resolvida;
-   - **avaliar** o atendimento;
-   - **cancelar o atendimento**, se uma reunião foi marcada e você não puder comparecer.
+   - **Marcar como solucionado**, quando a dúvida estiver resolvida (confirme em "Confirmar encerramento do chamado");
+   - **avaliar** o atendimento com nota e comentário;
+   - **Cancelar atendimento agendado**, se uma reunião foi marcada e você não puder comparecer.
 
 ## Quando a equipe marca uma reunião
 
@@ -30,4 +30,4 @@ Se a dúvida precisar de conversa, a equipe agenda um **atendimento online de 30
 
 - uma mensagem automática aparece no chamado com a data e a hora;
 - o convite com o link do Microsoft Teams chega no seu e-mail;
-- se não puder comparecer, use o botão **Cancelar Atendimento**.
+- se não puder comparecer, use o botão **Cancelar atendimento agendado** no chamado.

@@ -40,8 +40,9 @@ Sistema de agendamento de atendimentos técnicos da Secretaria Municipal de Urba
 
 ## Convenções
 
-- **✅ Confirmado no código**: comportamento verificado na leitura do código-fonte; o arquivo de origem é citado.
-- **❓ Requer confirmação**: informação que o código não comprova (decisão de negócio, ambiente de produção, regra provisória). Itens consolidados em [Pendências e riscos](tecnica/11-pendencias-e-riscos.md).
+- Tudo o que está descrito sem marcação foi **conferido no código**. A documentação técnica cita os arquivos de origem.
+- **Pendente de confirmação**: informação que o código não comprova (decisão de negócio, ambiente de produção, regra provisória, comportamento do backend NestJS) ou funcionalidade que existe no servidor sem tela correspondente. Itens consolidados em [Pendências e riscos](tecnica/11-pendencias-e-riscos.md).
 - Nenhum valor de variável de ambiente ou credencial é reproduzido nesta documentação.
+- Diagramas em [Mermaid](https://mermaid.js.org/), renderizados pelo GitHub/GitLab e pelo VS Code com extensão.
 
-Documentação gerada a partir do código em 07/10/2026 (branch `main`, incluindo alterações locais na tela de agenda dos técnicos).
+Documentação gerada a partir do código e revisada contra os arquivos de implementação em 07/10/2026 (branch `main`, incluindo alterações locais na tela de agenda dos técnicos).

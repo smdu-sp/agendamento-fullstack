@@ -2,7 +2,7 @@
 
 **Decisão**: o backend NestJS será descontinuado na versão fullstack. Todo o domínio passa a ser atendido por este repositório (Server Actions, route handlers e o Socket.IO do [server.ts](../../server.ts)).
 
-## Já migrado ✅
+## Já migrado
 
 Os comentários "Porta de ..." no código indicam que já foram migrados:
 
@@ -32,7 +32,7 @@ Observação: os arquivos de mutação ficam em `query-functions` e têm nomes d
 
 1. Portar para Server Actions as operações listadas, reaproveitando as tabelas `solicitacoes_pre_projeto_arthur_saboya*`, que já existem no schema.
 2. Implementar os eventos `preprojeto:join` e `preprojeto:atualizado` no Socket.IO do [server.ts](../../server.ts) (comentário "Fase 6") e apontar [lib/pre-projeto-chat-realtime.ts](../../lib/pre-projeto-chat-realtime.ts) para o próprio app.
-3. Definir como os e-mails que o NestJS enviava serão enviados (provavelmente pelo Graph `Mail.Send`, já usado nos avisos do Teams). Inclui o link de redefinição de senha do munícipe ❓.
+3. Definir como os e-mails que o NestJS enviava serão enviados (provavelmente pelo Graph `Mail.Send`, já usado nos avisos do Teams). Inclui o link de redefinição de senha do munícipe (pendente de confirmação).
 4. Remover as variáveis `NEXT_PUBLIC_API_URL`, `INTERNAL_API_URL`, `NEXT_PUBLIC_AGENDAMENTOS_API_URL` e, se não forem mais usadas, `MAIL_*`; remover `getApiUrl` de [lib/api-url.ts](../../lib/api-url.ts) e `getAuthHeaders` de [lib/api-headers.ts](../../lib/api-headers.ts) (cabeçalho `X-Impersonate-Permissao`, usado só pelo backend). Manter `setImpersonatePermissaoStorage`, que grava o cookie de personificação lido por [lib/authz.ts](../../lib/authz.ts).
 5. Atualizar esta documentação: [arthur-saboya-pre-projetos.md](08-regras-de-negocio/arthur-saboya-pre-projetos.md), [09-apis-e-integracoes.md](09-apis-e-integracoes.md) e [03-configuracao-ambiente.md](03-configuracao-ambiente.md).
 

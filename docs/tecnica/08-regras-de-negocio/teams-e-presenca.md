@@ -7,7 +7,7 @@ Fontes: [lib/agendamentos-teams.ts](../../../lib/agendamentos-teams.ts), [lib/te
 - Credenciais Azure no ambiente (`AZURE_*`). Ver [03-configuracao-ambiente.md](../03-configuracao-ambiente.md#microsoft-graph--teams).
 - **Caixa organizadora**: e-mail salvo em `configuracoes_sistema.TEAMS_ORGANIZER_EMAIL`. Se estiver vazio, usa a constante `EMAIL_MARCADOR_REUNIOES_PADRAO`. ADM/DEV editam e testam o e-mail em **Configurações**; o teste (`testarConexaoGraphInterno`) consulta a caixa no Graph.
 
-## Criação da reunião ✅
+## Criação da reunião
 
 `criarReuniaoTeamsSePossivel(agendamentoId)`:
 
@@ -43,7 +43,7 @@ Fontes: [lib/agendamentos-teams.ts](../../../lib/agendamentos-teams.ts), [lib/te
 - em lote, ao fim da importação da planilha SMUL;
 - pela fila de sincronização.
 
-## Aviso de falha ✅
+## Aviso de falha
 
 Quando a criação falha por motivo relevante (credenciais, caixa organizadora, e-mails ausentes, erro do Graph):
 
@@ -53,7 +53,7 @@ Quando a criação falha por motivo relevante (credenciais, caixa organizadora, 
 
 Falta de técnico, agendamento inexistente e status final não geram aviso.
 
-## Fila de sincronização ✅
+## Fila de sincronização
 
 Toda mudança que afeta uma reunião existente apenas **marca a intenção**:
 
@@ -71,13 +71,13 @@ Toda mudança que afeta uma reunião existente apenas **marca a intenção**:
    - online com evento → atualiza horário e participantes.
 3. Só limpa a pendência se a versão não mudou durante o processamento. Se der erro, grava `teamsUltimoErro`.
 
-`POST /api/internal/teams-sync` (Bearer `TEAMS_SYNC_SECRET`, comparação em tempo constante) processa até 20 pendentes com menos de 5 tentativas, dos mais antigos para os mais novos. ❓ Precisa de um agendador externo ([05-implantacao.md](../05-implantacao.md#tarefa-agendada-obrigatória)).
+`POST /api/internal/teams-sync` (Bearer `TEAMS_SYNC_SECRET`, comparação em tempo constante) processa até 20 pendentes com menos de 5 tentativas, dos mais antigos para os mais novos. **Pendente de confirmação**: Precisa de um agendador externo ([05-implantacao.md](../05-implantacao.md#tarefa-agendada-obrigatória)).
 
 O portal mostra "Teams pendente" ao munícipe enquanto a sincronização não termina.
 
-## Presença e resultado ✅
+## Presença e resultado
 
-`sincronizarPresencaInterno` (botão no detalhe; perfis ADM, DEV, TEC — só os próprios — e PF/COORD — só da coordenadoria):
+`sincronizarPresencaInterno` (botão "Atualizar presença" em [reuniao-teams-dialog.tsx](../../../app/(rotas-auth)/_components/reuniao-teams-dialog.tsx); perfis ADM, DEV, TEC — só os próprios — e PF/COORD — só da coordenadoria):
 
 1. Só se aplica a agendamentos `AGENDADO` com reunião. Status finais apenas devolvem os dados.
 2. Antes do fim da reunião: "aguardando relatório".
@@ -92,11 +92,11 @@ O portal mostra "Teams pendente" ao munícipe enquanto a sincronização não te
    - depois disso: `NAO_REALIZADO`.
 7. Toda mudança gera `STATUS_ALTERADO` (`origem: TEAMS`).
 
-❓ A presença só é sincronizada quando alguém aciona o botão. Não há rotina automática no repositório.
+**Pendente de confirmação**: A presença só é sincronizada quando alguém aciona o botão. Não há rotina automática no repositório.
 
-## Alternativa manual (Outlook) ✅
+## Alternativa manual (Outlook)
 
-[lib/outlook-agendamento-teams.ts](../../../lib/outlook-agendamento-teams.ts) monta o texto e o HTML do convite e abre o compose do Outlook. Serve quando a criação automática falha.
+[lib/outlook-agendamento-teams.ts](../../../lib/outlook-agendamento-teams.ts) monta o texto e o HTML do convite e abre o compose do Outlook. Hoje é usado no chamado Arthur Saboya ([chamado-pre-projeto-portal-view.tsx](../../../app/(rotas-auth)/pedidos-pre-projetos-arthur-saboya/_components/chamado-pre-projeto-portal-view.tsx)), quando a criação automática falha.
 
 ## Script de lote ⚠
 

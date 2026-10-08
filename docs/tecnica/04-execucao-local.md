@@ -58,7 +58,9 @@ Acesse `http://localhost:3001/agendamento`.
 - Área interna: `/agendamento/login`
 - Portal do munícipe: `/agendamento/portal`
 
-## 5. Primeiro usuário ❓
+## 5. Primeiro usuário
+
+> **Pendente de confirmação.**
 
 O repositório não tem seed. O login de servidores exige que o usuário exista na tabela `usuarios` (o LDAP só valida a senha). Para o primeiro acesso, insira manualmente um usuário com `permissao = 'ADM'` ou `'DEV'` e o login de rede correspondente. Para usuários com login local (ex.: Portaria), preencha `senha` com um hash bcrypt.
 
@@ -72,7 +74,7 @@ npm run prisma:migrate:dev -- --name descricao_da_mudanca
 
 ```bash
 npm run lint
-npx tsx --test tests/*.test.ts    # ❓ não há script "test" no package.json
+npx tsx --test tests/*.test.ts    # pendente de confirmação: não há script "test" no package.json
 ```
 
 Ver [10-testes-e-qualidade.md](10-testes-e-qualidade.md).

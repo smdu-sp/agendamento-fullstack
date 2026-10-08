@@ -6,15 +6,15 @@ Fontes: [services/agendamentos/server-functions/conferencia-cap.ts](../../../ser
 
 Triar as solicitações do portal que não puderam ser roteadas automaticamente: processo não localizado no BI ou unidade não mapeada (ver [portal-processos-e-bi.md](portal-processos-e-bi.md)).
 
-## Quem acessa ✅
+## Quem acessa
 
 ADM e DEV, ou PONTO_FOCAL/COORDENADOR lotados em uma divisão cuja coordenadoria tem sigla **`CAP`** (constante `SIGLA_COORDENADORIA_CAP`).
 
-## Fila ✅
+## Fila
 
 São listados os agendamentos com `origemPortalProcesso = true`, `conferenciaCapStatus = AGUARDANDO` e `status = SOLICITADO`, do mais antigo para o mais novo. Esses agendamentos ficam fora da lista geral e do dashboard até serem analisados.
 
-## Ações ✅
+## Ações
 
 | Ação | Entrada | Efeito |
 |---|---|---|

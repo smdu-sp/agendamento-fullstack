@@ -8,7 +8,7 @@
 | SGU (legado) | MySQL | Leitura, best-effort (`$queryRaw`) | Descobrir a unidade/divisão de um servidor pelo login de rede |
 | BI | SQL Server | Leitura (`mssql`) | Situação de comunique-se e despachos de processos |
 
-## Modelo principal ✅
+## Modelo principal
 
 Fonte: [prisma/schema.prisma](../../prisma/schema.prisma). Todas as chaves primárias são UUID (`String @default(uuid())`), exceto `configuracoes_sistema` (chave textual).
 
@@ -87,7 +87,7 @@ erDiagram
 | `StatusSolicitacaoPreProjeto` | SOLICITADO, RESPONDIDO (exibido como "Solucionado"), AGUARDANDO_DATA, AGENDAMENTO_CRIADO |
 | `AutorMensagemPreProjetoArthurSaboya` | MUNICIPE, PONTO_FOCAL, SISTEMA |
 
-## Tipos de evento registrados em `eventos_agendamento` ✅
+## Tipos de evento registrados em `eventos_agendamento`
 
 | Tipo | Gerado em |
 |---|---|
@@ -109,27 +109,29 @@ Os campos `DateTime` guardam o **horário civil de São Paulo como se fosse UTC*
 
 ## Migrações
 
-| Migração | Conteúdo (pelo nome e pelo schema) |
+Conteúdo conferido nos arquivos `migration.sql` de [prisma/migrations](../../prisma/migrations/):
+
+| Migração | Conteúdo |
 |---|---|
-| `0_init` | Estrutura inicial |
-| `20260706120000_add_permissao_adm_arthur_saboya` | Perfil `ADM_ARTHUR_SABOYA` |
-| `20260825180000_teams_reunioes` | Campos do Teams, presenças, configurações |
-| `20260902160000_portal_processos` | Agendamento pelo portal e CAP |
-| `20260928120000_contexto_recurso_modalidade` | Snapshot do BI, modalidade, origem |
-| `20260928140000_agenda_ausencias_tecnicos` | Agenda e ausências dos técnicos |
-| `20260928160000_encaminhamento_reserva` | Técnico reserva |
-| `20260928180000_sincronizacao_teams` | Fila de sincronização do Teams |
+| `0_init` | Cria `usuarios`, `agendamentos`, `tipos_agendamento`, `motivos`, `coordenadorias`, `divisoes`, `solicitacoes_pre_projeto_arthur_saboya`, `solicitacoes_pre_projeto_arthur_saboya_mensagens`, `log_importacao_planilha`, `log_importacao_outlook`, `municipes_contas`, `municipes_tokens_redefinicao_senha` |
+| `20260706120000_add_permissao_adm_arthur_saboya` | Inclui `ADM_ARTHUR_SABOYA` no enum `permissao` de `usuarios` |
+| `20260825180000_teams_reunioes` | Cria `configuracoes_sistema` e `presencas_reuniao`; adiciona a `agendamentos` os campos `teams*` (evento, link, meeting, organizador, último erro), de cancelamento e `presencaSincronizadaEm` |
+| `20260902160000_portal_processos` | Adiciona a `agendamentos`: telefone, relação com o projeto, origem portal, status da CAP, dados do BI, `confirmadoProcessoAusente`, `observacaoCap`, `municipeContaId` |
+| `20260928120000_contexto_recurso_modalidade` | Adiciona a `agendamentos`: modalidade, origem, snapshot do recurso no BI, dúvida, `localAtendimento`, `sala`, `orientacaoAcesso` |
+| `20260928140000_agenda_ausencias_tecnicos` | Cria `agendas_tecnicos` e `ausencias_tecnicos` |
+| `20260928160000_encaminhamento_reserva` | Adiciona `encaminhadoReservaEm` e `motivoEncaminhamentoReserva`; cria `eventos_agendamento` |
+| `20260928180000_sincronizacao_teams` | Adiciona a `agendamentos` os campos da fila `teamsSync*` |
 
 ## Bancos externos
 
-### SGU ✅
+### SGU
 
 - Client: [lib/prisma-sgu.ts](../../lib/prisma-sgu.ts) — client Prisma principal apontado para `SGU_DATABASE_URL`, usando só SQL bruto.
 - Consulta: `tblUsuarios` × `tblUnidades` por `cpUsuarioRede` → `sigla` da unidade, comparada com a `sigla` das divisões locais ([lib/usuarios-core.ts](../../lib/usuarios-core.ts)).
 - Falhas são ignoradas (retorna `null`).
 - O schema [prisma/sgu/schema.prisma](../../prisma/sgu/schema.prisma) gera um client tipado que não é usado nas consultas.
 
-### BI ✅
+### BI
 
 - Client: [lib/bi-processos.ts](../../lib/bi-processos.ts) (pool `mssql` reaproveitado entre requisições).
 - `dbo.prata_comuniquese`: `processo`, `protocolo`, `sistema`, `situacaoComuniquese`, `unidadeComuniquese`, `responsavelComuniquese`, `responsavelComuniqueseID`.

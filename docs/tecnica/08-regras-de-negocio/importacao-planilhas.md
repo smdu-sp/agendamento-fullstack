@@ -4,7 +4,7 @@ Fontes: [lib/agendamentos-import.ts](../../../lib/agendamentos-import.ts), [impo
 
 Acesso: **ADM e DEV**. Arquivo Excel (`.xlsx` ou `.xls`), limite de 10 MB, validado na action e em `serverActions.bodySizeLimit` ([next.config.ts](../../../next.config.ts)).
 
-## Planilha padrão SMUL ✅
+## Planilha padrão SMUL
 
 Relatório do "Sistema de Agendamento Eletrônico".
 
@@ -12,6 +12,7 @@ Relatório do "Sistema de Agendamento Eletrônico".
 - **Linhas ignoradas**: vazias, títulos ("Sistema de Agendamento Eletrônico", "Relatório de Agendamentos") e repetições do cabeçalho.
 - **Data/hora**: aceita texto ou número serial do Excel e grava como horário civil de São Paulo ([ADR 0001](../adr/0001-horario-civil-sp-em-campos-utc.md)). Duração de 60 min.
 - **Tipo de agendamento**: buscado pelo texto; é criado se não existir.
+- **Telas de envio**: a página **Importar Agendamentos** ([importar-planilha-form.tsx](../../../app/(rotas-auth)/importar-planilha/_components/importar-planilha-form.tsx)) envia só o arquivo. O componente da página inicial ([_components/importar-planilha.tsx](../../../app/(rotas-auth)/_components/importar-planilha.tsx)) permite escolher também uma coordenadoria.
 - **Coordenadoria**: o `coordenadoriaId` opcional enviado no formulário, ou a sigla de "Local de Atendimento" (criada se não existir).
 - **Técnico**:
   - "TÉCNICO RESERVA {SIGLA}" → sem técnico; a sigla define a coordenadoria;
@@ -21,7 +22,7 @@ Relatório do "Sistema de Agendamento Eletrônico".
 - **Teams**: ao final, cria em lote as reuniões dos agendamentos com técnico, exceto os do tipo Arthur Saboya. As falhas são avisadas por e-mail aos pontos focais ([teams-e-presenca.md](teams-e-presenca.md)).
 - **Resultado**: importados, erros, duplicados, reuniões criadas e reuniões com falha. Grava `log_importacao_planilha`; a data da última importação aparece na tela inicial.
 
-## Planilha Outlook ✅
+## Planilha Outlook
 
 - O título contém "Data:" e os registros começam na linha 5. Colunas: Tipo de Atendimento, Visitante, CPF, Horário, Unidade, Número do Processo, Técnico Responsável.
 - Visitante e horário são obrigatórios.
@@ -30,7 +31,7 @@ Relatório do "Sistema de Agendamento Eletrônico".
 - **Gravação**: `importadoOutlook = true`, **sem técnico**; o nome do técnico vai como texto em `tecnicoResponsavelPlanilha`. Duração de 60 min, `SOLICITADO`. Não cria reuniões.
 - Grava `log_importacao_outlook`.
 
-## Técnico pelo RF ✅
+## Técnico pelo RF
 
 `buscarOuCriarTecnicoPorRF` ([lib/agendamentos-core.ts](../../../lib/agendamentos-core.ts)):
 

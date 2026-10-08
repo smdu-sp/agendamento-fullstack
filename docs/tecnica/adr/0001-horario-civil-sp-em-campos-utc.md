@@ -1,13 +1,13 @@
 # ADR 0001 — Horário civil de São Paulo gravado em campos UTC
 
-- **Status**: vigente (decisão inferida do código ❓ confirmar com a equipe)
+- **Status**: vigente (decisão inferida do código; pendente de confirmação com a equipe)
 - **Data do registro**: 07/10/2026
 
 ## Contexto
 
 O MySQL guarda `DateTime` sem fuso, e o Prisma serializa em UTC. As planilhas importadas e as escolhas do munícipe vêm em horário de Brasília.
 
-## Decisão (como está implementada) ✅
+## Decisão (como está implementada)
 
 Os campos de data/hora de agendamento, agenda e ausência guardam o **horário civil de São Paulo como se fosse UTC**. Exemplo: um atendimento às 14:00 de Brasília fica gravado como `14:00Z`.
 

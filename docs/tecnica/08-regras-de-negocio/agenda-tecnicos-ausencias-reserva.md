@@ -2,11 +2,11 @@
 
 Fontes: [lib/agenda-slots.ts](../../../lib/agenda-slots.ts) (lógica pura, testada em [tests/agenda-slots.test.ts](../../../tests/agenda-slots.test.ts)), [lib/agenda-tecnicos.ts](../../../lib/agenda-tecnicos.ts), [services/agendamentos/server-functions/agenda-tecnicos.ts](../../../services/agendamentos/server-functions/agenda-tecnicos.ts), tela [agenda-tecnicos-panel.tsx](../../../app/(rotas-auth)/agenda-tecnicos/_components/agenda-tecnicos-panel.tsx).
 
-## Quem gerencia ✅
+## Quem gerencia
 
 ADM, DEV, PONTO_FOCAL, COORDENADOR e DIRETOR. PF, COORD e DIRETOR veem e alteram só técnicos da **própria coordenadoria**; sem coordenadoria, não veem nenhum técnico. TEC pode consultar a disponibilidade da própria agenda. Só técnicos ativos que podem ser atribuídos (TEC, ou DEV com divisão) aparecem.
 
-## Regra de agenda (faixa recorrente) ✅
+## Regra de agenda (faixa recorrente)
 
 | Campo | Regra |
 |---|---|
@@ -19,7 +19,7 @@ ADM, DEV, PONTO_FOCAL, COORDENADOR e DIRETOR. PF, COORD e DIRETOR veem e alteram
 - Faixas ativas do mesmo técnico, no mesmo dia e modalidade, com vigências que se cruzam, **não podem se sobrepor** ("Esta faixa se sobrepõe a outra regra ativa do técnico."). Isso vale ao criar e ao reativar.
 - As regras não são apagadas: são ativadas e desativadas.
 
-## Geração de slots ✅
+## Geração de slots
 
 Para um dia e uma modalidade:
 
@@ -31,7 +31,7 @@ Para um dia e uma modalidade:
 
 `exigirSlotLivre` só aceita um intervalo que coincida **exatamente** com um slot gerado e fique dentro de um mesmo dia. Toda reserva bloqueia o técnico com `SELECT ... FOR UPDATE` antes de conferir, o que impede dupla reserva concorrente.
 
-## Ausências ✅
+## Ausências
 
 | Campo | Regra |
 |---|---|
@@ -43,8 +43,8 @@ Para um dia e uma modalidade:
 - A aba de ausências mostra os conflitos atuais (`listarConflitosAusencia`), com atalho "Abrir atendimento". **O sistema não remarca nem reatribui sozinho**: quem gerencia a agenda decide o que fazer.
 - As ausências são ativadas e desativadas, nunca apagadas.
 
-## Técnico reserva ✅
+## Técnico reserva
 
 - **Portal**: se o técnico do BI está ausente no horário escolhido, o agendamento é criado **sem técnico**, com `encaminhadoReservaEm` e `motivoEncaminhamentoReserva`, e o responsável original fica no snapshot do BI. A coordenadoria então atribui outro técnico, o que gera o evento `ATRIBUIDO_RESERVA`.
 - **Planilha SMUL**: a linha com "TÉCNICO RESERVA {SIGLA}" fica sem técnico. A sigla é usada para achar a coordenadoria.
-- ❓ Não existe um cadastro de quem são os técnicos reserva. A escolha é manual.
+- **Pendente de confirmação**: Não existe um cadastro de quem são os técnicos reserva. A escolha é manual.

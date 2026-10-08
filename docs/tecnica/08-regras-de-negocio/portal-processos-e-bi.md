@@ -8,7 +8,7 @@ Requisitos de origem: RF-001 a RF-018 e RN-001 a RN-008 em `REQUISITOS_PORTAL_AG
 
 O munícipe precisa estar logado no portal. Toda Server Action do portal recebe o token e o valida com `requireMunicipeFromToken`.
 
-## Tipos de agendamento do portal ✅
+## Tipos de agendamento do portal
 
 Lista fechada em `TIPOS_AGENDAMENTO_PORTAL_PROCESSO`. Os tipos são criados em `tipos_agendamento` se não existirem.
 
@@ -19,16 +19,16 @@ Lista fechada em `TIPOS_AGENDAMENTO_PORTAL_PROCESSO`. Os tipos são criados em `
 
 Relação com o projeto: Autor do projeto, Autorizado, Proprietário, Responsável técnico, Terceiros.
 
-## Consulta ao BI ✅
+## Consulta ao BI
 
 1. O número informado é normalizado (trim e espaços simples) e buscado em `dbo.prata_comuniquese` e `dbo.prata_despacho`, pelo campo `processo` **ou** `protocolo`.
 2. Cada linha vira uma **ocorrência**: tipo, processo, protocolo, sistema, situação, unidade, responsável e RF do responsável. O ID é um hash SHA-256, e ocorrências repetidas são descartadas.
 3. Elegibilidade:
-   - **Comunique-se**: sempre elegível. ❓ Regra marcada como "provisória" no código ([bi-elegibilidade.ts](../../../lib/bi-elegibilidade.ts)).
+   - **Comunique-se**: sempre elegível. **Pendente de confirmação**: Regra marcada como "provisória" no código ([bi-elegibilidade.ts](../../../lib/bi-elegibilidade.ts)).
    - **Despacho**: elegível só se a situação for "indeferido" (sem diferenciar maiúsculas e minúsculas).
 4. Se o BI estiver indisponível, o portal mostra "Não foi possível consultar o BI. Tente novamente mais tarde." e não cria o agendamento.
 
-## Roteamento pela unidade do BI ✅
+## Roteamento pela unidade do BI
 
 `mapearUnidadeBi` gera variações da unidade, por exemplo removendo `SMUL/`, trocando `-` por `/`, tirando espaços e usando o primeiro segmento. A ordem de busca é:
 
@@ -36,11 +36,11 @@ Relação com o projeto: Autor do projeto, Autorizado, Proprietário, Responsáv
 2. senão, **sigla de coordenadoria** ativa → só a coordenadoria;
 3. senão, a unidade não é mapeada.
 
-## Técnico responsável ✅
+## Técnico responsável
 
 O RF do responsável no BI vira o login `d` + 6 primeiros dígitos (`rfParaLogin`). O técnico só é usado se existir, estiver ativo e for `TEC` (ou `DEV` com divisão).
 
-## Escolha do horário ✅
+## Escolha do horário
 
 ```mermaid
 flowchart TD
@@ -57,7 +57,7 @@ flowchart TD
 - No modo agenda, os slots que caem em ausência do técnico são oferecidos assim mesmo, marcados como reserva (`horariosReserva`).
 - Data e horário precisam ser futuros (fuso de São Paulo) e cair em dia útil.
 
-## Criação da solicitação ✅
+## Criação da solicitação
 
 Validações:
 
@@ -89,7 +89,7 @@ Sempre com `status = SOLICITADO`, `origemPortalProcesso = true`, duração de 60
 
 No modo agenda, a criação bloqueia o técnico (`FOR UPDATE`) e confere de novo se o slot está livre (proteção contra dupla reserva — RN-008).
 
-## Consulta e cancelamento pelo munícipe ✅
+## Consulta e cancelamento pelo munícipe
 
 - `listarAgendamentosPortalProcesso` traz só os agendamentos do próprio munícipe com origem no portal: data, processo, status, CAP, modalidade, local, sala, orientações, observação da CAP e link do Teams.
 - O status mostrado ao munícipe é traduzido por `rotuloStatusAgendamentoPortal`. Exemplos: "Em conferência pela CAP", "Aguardando confirmação da coordenadoria", "Processo não localizado".
