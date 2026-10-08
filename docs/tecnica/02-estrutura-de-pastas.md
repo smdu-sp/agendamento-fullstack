@@ -46,6 +46,7 @@
 | `/conferencia-cap` | Fila da CAP |
 | `/dashboard` | Indicadores |
 | `/pedidos-pre-projetos-arthur-saboya`, `/[slug]` | Pedidos e chamado Arthur Saboya |
+| `/municipes` | Contas do portal (munícipes): editar, ativar/desativar, resetar senha |
 | `/usuarios`, `/coordenadorias`, `/divisoes`, `/tipos-agendamento`, `/motivos` | Cadastros |
 | `/importar-planilha`, `/importar-agendamentos-outlook` | Importações |
 | `/configuracoes` | Configuração do Teams |

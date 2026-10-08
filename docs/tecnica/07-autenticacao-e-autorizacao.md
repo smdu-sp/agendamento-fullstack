@@ -79,6 +79,7 @@ Legenda: ● permitido · ◐ permitido com restrição · — negado. DEV passa
 | Coordenadorias, divisões, tipos: alterar | ● | — | — | — | — | — |
 | Motivos: criar | ● | ● | ● | — | — | — |
 | Motivos: listar no cadastro, editar, desativar | ● | — | — | — | — | — |
+| Munícipes: listar, editar, ativar/desativar, resetar senha⁵ | ● | — | — | — | — | — |
 | Configurações: ver / editar e testar | ● / ● | ● / — | ● / — | — | — | — |
 
 1. TEC só altera `status` (ATENDIDO, NAO_REALIZADO, CONCLUIDO) e `motivoNaoAtendimentoId` de agendamentos em que é o técnico ([atualizar.ts](../../services/agendamentos/server-functions/atualizar.ts)).
@@ -92,6 +93,8 @@ Legenda: ● permitido · ◐ permitido com restrição · — negado. DEV passa
    - **Busca na rede** (`buscarNovo`): se o login já existe e está inativo, a busca **reativa** o usuário ([buscar-novo.ts](../../services/usuarios/query-functions/buscar-novo.ts)).
 
 4. "Cancelar reunião" também **cancela o agendamento** (status `CANCELADO`), exigindo motivo com no mínimo 5 caracteres ([lib/agendamentos-teams.ts](../../lib/agendamentos-teams.ts), `cancelarReuniaoTeamsInterno`).
+
+5. Server Actions em [services/municipes/](../../services/municipes/). O reset grava uma senha aleatória de 10 caracteres (bcrypt, custo 10), devolvida uma única vez ao administrador, e apaga os tokens de redefinição não usados ([resetar-senha.ts](../../services/municipes/server-functions/resetar-senha.ts)).
 
 ⚠ `buscarPorId` só confere o perfil, não o escopo: qualquer perfil da lista abre o detalhe de qualquer agendamento se souber o ID ([buscar-por-id.ts](../../services/agendamentos/query-functions/buscar-por-id.ts)). Ver [riscos](11-pendencias-e-riscos.md).
 
@@ -109,6 +112,7 @@ Pedidos Arthur Saboya (tela interna): DEV, ADM, TEC, ARTHUR_SABOYA, ADM_ARTHUR_S
 | Administração / Coordenadoria / Divisão | Dashboard, Agenda dos técnicos | DEV, ADM, PF, COORD, DIRETOR |
 | | Usuários | DEV, ADM, PF, COORD |
 | | Configurações | PF, COORD (DEV/ADM pelo grupo admin) |
+| | Munícipes | DEV, ADM |
 | | Coordenadorias, Divisões, Tipos de Agendamento, Motivos, Configurações, Importar Agendamentos, Importar Outlook | DEV, ADM |
 | Páginas Externas, Ferramentas DEV | Links do portal, Preview de e-mails | DEV |
 
@@ -123,6 +127,7 @@ Pedidos Arthur Saboya (tela interna): DEV, ADM, TEC, ARTHUR_SABOYA, ADM_ARTHUR_S
   - token aleatório de 32 bytes, guardado como SHA-256, válido por 60 minutos e de uso único;
   - tokens anteriores não usados são apagados.
   - Em ambiente local o link volta na própria resposta.
+  - A administração também pode resetar a senha pela tela interna **Munícipes** (`/municipes`), que gera uma senha temporária (ver nota 5 da matriz).
   - **Pendente de confirmação**: Em produção o link **não é enviado por e-mail por este código**. Confirmar como o munícipe recebe o link.
 
 ## Observações de segurança

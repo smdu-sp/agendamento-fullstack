@@ -15,6 +15,15 @@ Em **Usuários**:
 - **Ativar** de novo um usuário desativado ("Tem certeza que deseja ativar esse usuário?").
 - A divisão define o que a pessoa vê. Ponto focal, coordenador, diretor e técnico **sem divisão** ficam sem agendamentos visíveis.
 
+## Munícipes
+
+Em **Munícipes** ficam as contas criadas pelos cidadãos no portal. Busque pelo **nome ou e-mail** e filtre por **Status**. A lista mostra a data de cadastro, o último acesso e quantos agendamentos e pedidos de pré-projeto cada conta tem.
+
+- **Editar**: corrige o nome ou o e-mail de acesso. O e-mail não pode ser igual ao de outra conta.
+- **Resetar senha**: gera uma **senha temporária** de 10 caracteres. Ela aparece **uma única vez**: copie e repasse ao munícipe. A senha anterior deixa de funcionar e links de "Esqueci minha senha" já enviados são invalidados.
+- **Desativar**: bloqueia o acesso ao portal na hora, inclusive de quem já está conectado. Os agendamentos e pedidos da conta continuam no sistema.
+- **Ativar**: devolve o acesso a uma conta desativada.
+
 ## Cadastros básicos
 
 | Tela | Para quê | Cuidado |

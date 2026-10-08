@@ -27,7 +27,7 @@ O acesso continua válido neste navegador por até 7 dias. Depois disso, entre d
 3. Abra o link de redefinição. Ele vale por **1 hora** e só funciona uma vez.
 4. Crie a nova senha (mínimo de 6 caracteres).
 
-> Se o link não chegar, procure o atendimento da SMUL.
+> Se o link não chegar, procure o atendimento da SMUL. A equipe pode gerar uma **senha temporária** para você entrar.
 
 ## Sair
 

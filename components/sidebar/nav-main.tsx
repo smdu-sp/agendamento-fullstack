@@ -21,6 +21,7 @@ import {
   CalendarClock,
   Mail,
   Settings,
+  Contact,
 } from "lucide-react";
 
 import {
@@ -85,6 +86,11 @@ export async function NavMain() {
       titulo: "Usuários",
       url: "/usuarios",
       permissao: "usuario_buscar_tudo",
+    },
+    {
+      icone: Contact,
+      titulo: "Munícipes",
+      url: "/municipes",
     },
     {
       icone: Building2,
